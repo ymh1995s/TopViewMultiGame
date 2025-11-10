@@ -1,6 +1,7 @@
 #pragma once
 class RecvBuffer
 {
+public:
 	RecvBuffer(int size = 4096) : bufferSize(size), dataSize(0)
 	{
 		buffer = new char[bufferSize];

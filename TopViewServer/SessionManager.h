@@ -7,7 +7,7 @@ class Session;
 class SessionManager
 {
 public:
-	void AddSession(shared_ptr<Session> session);
+	int AddSession(shared_ptr<Session> session);
 	void RemoveSession(int id);
 
 	shared_ptr<Session> FindSession(int id);

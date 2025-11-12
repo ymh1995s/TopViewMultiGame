@@ -1,13 +1,16 @@
-#include <SDKDDKVer.h>
+//#include <SDKDDKVer.h>
+#include "SessionManager.h"
+
 // ASIO.h
 using namespace std;
 using boost::asio::ip::tcp;
 
+
 class ASIO
 {
 public:
-	ASIO(boost::asio::io_context& io_context, int port)
-		: io_context(io_context), port(port),
+	ASIO(boost::asio::io_context& io_context, int port, shared_ptr<SessionManager> sessionManager )
+		: io_context(io_context), port(port), sessionManager(sessionManager),
 		acceptor(io_context, tcp::endpoint(tcp::v4(), port))
 	{
 
@@ -25,5 +28,6 @@ private:
 	const int port;
 	boost::asio::io_context& io_context;
 	tcp::acceptor acceptor;
+	shared_ptr<SessionManager> sessionManager;
 };
 

@@ -3,11 +3,10 @@
 #include "Session.h"
 
 // TODO : Lock 경합 제거 
-int SessionManager::AddSession(shared_ptr<Session> session)
+shared_ptr<Session> SessionManager::AddSession()
 {
 	int id = ClientNo.fetch_add(1);
-	session->SetSessionId(id);
-
+	shared_ptr<Session> session = make_shared<Session>(id);
 
 	// make_pair : 임시 객체 생성 비용 + sharedptr 1증가
 	// insert : session(쉐어드 포인터이므로) 복사 + sharedptr 1증가
@@ -19,7 +18,7 @@ int SessionManager::AddSession(shared_ptr<Session> session)
 		sessions.emplace(id, move(session));
 	}
 
-	return id;
+	return session;
 }
 
 void SessionManager::RemoveSession(int id)

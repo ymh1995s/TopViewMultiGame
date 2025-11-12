@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "ASIO.h"
+#include "Session.h"
 
 // ASIO.cpp
 
@@ -17,7 +18,9 @@ void ASIO::DoAccept()
 		{
 			if (!ec)
 			{
-				cout << "Client Connected" << endl;
+				auto session = sessionManager->AddSession();
+				session->Start(socket);
+				cout << "Client Connected, session id=" << session->GetSessionId() << endl;
 				DoRead(socket);
 			}
 			else
@@ -32,7 +35,7 @@ void ASIO::DoAccept()
 
 void ASIO::DoRead(shared_ptr<tcp::socket> socket)
 {
-	// tatic char buffer[1024];
+	// static char buffer[1024];
 	auto buffer = make_shared<vector<char>>(1024); // 각 호출마다 별도 버퍼
 
 	socket->async_read_some(boost::asio::buffer(*buffer),

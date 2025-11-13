@@ -15,6 +15,8 @@ int main()
     ASIO asio(io_context, 7777, sessionManager);
 	asio.Start();
 
+	cout << "Here is Server.. \n";
+
 	io_context.run();
 
 	return 0;

@@ -143,7 +143,7 @@ void do_read(tcp::socket& socket)
 // 시그니처를 맞춰줘야 async_connect 콜백 함수로 사용 가능
 void Connected(const boost::system::error_code& ec)
 {
-	if (!ec) cout << "Server Connected.. \n";
+	if (!ec) cout << "Server Connected.. Here is Client \n";
 	else cout << "Connected failed " << ec.message() << "\n";
 }
 

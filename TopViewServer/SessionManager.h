@@ -4,7 +4,7 @@ using namespace std;
 
 class Session;
 
-class SessionManager
+class SessionManager : public enable_shared_from_this<SessionManager>
 {
 public:
 	shared_ptr<Session> AddSession();
@@ -12,7 +12,7 @@ public:
 
 	shared_ptr<Session> FindSession(int id);
 
-	void Broadcast();
+	void Broadcast(const char* msg, int size);
 
 private:
 	mutex lock;

@@ -21,7 +21,7 @@ public:
 
 private:
 	void DoAccept();
-	void DoRead(shared_ptr<tcp::socket> socket);
+	// void DoRead(shared_ptr<tcp::socket> socket); // Session이 생기면서 ASIO는 Acce만 담당
 
 private:
 	const int port;

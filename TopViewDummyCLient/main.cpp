@@ -11,114 +11,31 @@ using boost::asio::ip::tcp;
 const char SERVER_IP[] = "127.0.0.1";
 const int SERVER_PORT = 7777;
 
-/* 이전 ASIO Chat Server에서 가져옴 */
-//struct PacketHeader
-//{
-//	int size;
-//	int id;
-//};
-//
-//struct ChatMessage
-//{
-//	PacketHeader header;
-//	string  body;
-//};
-//
-//class Packet
-//{
-//public:
-//	static vector<char> MakeChatPacket(const string& msg)
-//	{
-//		PacketHeader header;
-//		header.size = sizeof(PacketHeader) + msg.size();
-//		header.id = 1; // 1 = 채팅
-//
-//		vector<char> buffer(header.size);
-//		memcpy(buffer.data(), &header, sizeof(PacketHeader));
-//		memcpy(buffer.data() + sizeof(PacketHeader), msg.data(), msg.size());
-//
-//		return buffer;
-//	}
-//};
-////
-//
-//class ChatClient
-//{
-//public:
-//	ChatClient(boost::asio::io_context& io_context, tcp::endpoint& endpoint)
-//		: socket(io_context)
-//	{
-//		socket.async_connect(endpoint,
-//			// this => 값으로 캡쳐 
-//			[this](boost::system::error_code ec)
-//			{
-//				if (!ec)
-//				{
-//					std::cout << "서버 연결 성공\n";
-//					do_read();
-//				}
-//				else
-//				{
-//					std::cout << "연결 실패: " << ec.message() << "\n";
-//				}
-//			});
-//	}
-//
-//	//void send_message(std::shared_ptr<std::vector<char>> packet)
-//	//{
-//	//	boost::asio::async_write(socket, boost::asio::buffer(*packet),
-//	//		[packet](boost::system::error_code ec, std::size_t /*length*/)
-//	//		{
-//	//			if (ec)
-//	//				std::cout << "송신 오류: " << ec.message() << "\n";
-//	//		});
-//	//}
-//
-//	// 패킷을 의도적으로 나눠보내 서버에서 패킷이 바로 가는지 확인하기
-//	void send_message(std::shared_ptr<vector<char>> packet)
-//	{
-//		int half_size = packet->size() / 2;
-//
-//		// 첫 절반 전송
-//		boost::asio::async_write(socket, boost::asio::buffer(packet->data(), half_size),
-//			[packet](boost::system::error_code ec, size_t /*length*/)
-//			{
-//				if (ec)
-//					cout << "첫 번째 전송 오류: " << ec.message() << "\n";
-//			});
-//
-//		this_thread::sleep_for(chrono::seconds(2));
-//
-//		// 두 번째 절반 전송
-//		boost::asio::async_write(socket, boost::asio::buffer(packet->data() + half_size, packet->size() - half_size),
-//			[packet](boost::system::error_code ec, size_t /*length*/)
-//			{
-//				if (ec)
-//					cout << "두 번째 전송 오류: " << ec.message() << "\n";
-//			});
-//	}
-//
-//private:
-//	void do_read()
-//	{
-//		socket.async_read_some(boost::asio::buffer(recvBuffer, 1024),
-//			[this](boost::system::error_code ec, size_t length)
-//			{
-//				if (!ec)
-//				{
-//					cout << "[서버] " << string(recvBuffer, length) << "\n";
-//					do_read(); // 계속 읽기 등록
-//				}
-//				else
-//				{
-//					cout << "수신 오류: " << ec.message() << "\n";
-//				}
-//			});
-//	}
-//
-//	tcp::socket socket;
-//	char recvBuffer[1024];
-//};
+class tempPacket
+{
+public:
+	void SetBody(const std::string& str)
+	{
+		body = str;
+		size = static_cast<uint32_t>(body.size());
+	}
+
+	void SetBody(const char* data, size_t len/* Body Len */)
+	{
+		body.assign(data, len); // assign : 복사 함수 
+		size = static_cast<uint32_t>(body.size());
+	}
+
+	uint32_t GetSize() const { return size; }
+	const std::string& GetBody() const { return body; }
+
+private:
+	uint32_t size;
+	string body;
+};
+
+
+
 
 void do_read(tcp::socket& socket)
 {
@@ -174,7 +91,11 @@ int main()
 		});
 
 	// 5. 메인 스레드는 입력(채팅) 스레드로 사용
+	int loopCount = 0; // 전역 또는 main 안에서 유지
+	string userInput;
 	while (true) {
+
+		/*
 		auto msg_ptr = make_shared<string>();
 		getline(cin, *msg_ptr);
 
@@ -186,14 +107,38 @@ int main()
 				if (ec) cerr << "send err: " << ec.message() << "\n";
 			});
 
-		//string msg;
-		//getline(cin, msg);
+		*/
 
-		//boost::asio::async_write(socket, boost::asio::buffer(msg),
-		//	[msg](const boost::system::error_code& ec, size_t)
-		//	{
-		//		if (ec) cerr << "send err: " << ec.message() << "\n";
-		//	});
+		if (loopCount == 0)
+		{
+			cout << "Enter message: ";
+			getline(cin, userInput);
+		}
+
+		loopCount++;
+
+		int packetCount = loopCount; // 1,2,3
+		for (int i = 0; i < packetCount; ++i)
+		{
+			// tempPacket 생성
+			auto pkt_ptr = make_shared<tempPacket>();
+			pkt_ptr->SetBody(userInput);
+
+			// 송신용 버퍼 생성 (헤더 + 바디)
+			uint32_t bodySize = static_cast<uint32_t>(pkt_ptr->GetSize());
+			auto sendBuffer = make_shared<vector<char>>(sizeof(uint32_t) + bodySize);
+			memcpy(sendBuffer->data(), &bodySize, sizeof(uint32_t));
+			memcpy(sendBuffer->data() + sizeof(uint32_t), pkt_ptr->GetBody().data(), bodySize);
+
+			// async_write로 송신
+			boost::asio::async_write(socket, boost::asio::buffer(*sendBuffer),
+				[sendBuffer](const boost::system::error_code& ec, size_t)
+				{
+					if (ec) cerr << "send err: " << ec.message() << "\n";
+				});
+		}
+
+		if (loopCount >= 3) loopCount = 0; // 다시 0으로 초기화
 	}
 
 	ioThread.join();

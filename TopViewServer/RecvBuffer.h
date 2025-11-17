@@ -1,14 +1,20 @@
 #pragma once
+#include "tempPacket.h"
+
+using namespace std;
+
 class RecvBuffer
 {
 public:
-	RecvBuffer(int size = 4096) : bufferSize(size), dataSize(0)
-	{
-		buffer = new char[bufferSize];
-	}
+	vector<tempPacket> attachData(char* data, size_t size);
+
 private:
-	char* buffer;
-	int bufferSize;
-	int dataSize = 0;
+	void Clear();
+	void Clear(size_t remainedDataSize);
+
+private:
+	char buffer[40960];
+	size_t readPos = 0;
+	size_t writePos = 0;
 };
 

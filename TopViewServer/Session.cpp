@@ -13,26 +13,17 @@ void Session::Recv()
 	if (!socket || !socket->is_open()) return;
 
 	auto self = shared_from_this(); // 핸들러 내부에서 수명 보장용
+	// TODO : tempRecvBuffer는 삭제 예정인데 바로 RecvBuffer로 옮기는 방법은?
 	socket->async_read_some(boost::asio::buffer(tempRecvBuffer, sizeof(tempRecvBuffer)),
 		[self](const boost::system::error_code& ec, size_t length)
 		{
 			if (!ec)
 			{
-				std::cout << "Session " << self->GetSessionId() << " recv: " << std::string(self->tempRecvBuffer, length) << "\n";
+				//std::cout << "Session " << self->GetSessionId() << " recv: " << std::string(self->tempRecvBuffer, length) << "\n";
 
-				// 브로드캐스트 테스트
-				if (auto t = self->sessionManager.lock())
-				{
-					const char* msg = self->tempRecvBuffer;
-					t->Broadcast(msg, static_cast<int>(length));
-				}
-				
-				//// 에코
-				//boost::asio::async_write(*self->socket, boost::asio::buffer(self->tempRecvBuffer, length),
-				//	[self](const boost::system::error_code& ec, size_t)
-				//	{
-				//		if (ec) std::cerr << "send err: " << ec.message() << "\n";
-				//	});
+				vector<tempPacket> packets = self->recvBuffer.attachData(self->tempRecvBuffer,length);
+
+				cout << "Session NO." << self->GetSessionId() << " Recved " << packets.size()<< "\n";
 
 				self->Recv();
 			}

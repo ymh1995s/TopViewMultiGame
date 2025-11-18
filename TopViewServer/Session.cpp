@@ -23,7 +23,13 @@ void Session::Recv()
 
 				vector<tempPacket> packets = self->recvBuffer.attachData(self->tempRecvBuffer,length);
 
-				cout << "Session NO." << self->GetSessionId() << " Recved " << packets.size()<< "\n";
+				cout << "Session " << self->GetSessionId() << " received " << packets.size() << " packets.\n";
+				
+				// TODO : 삭제, 생성자 - 소비자 패턴으로 변경
+				// 네트워크와 처리 로직은 분리되어야 한다.
+				for (auto& pkt : packets)
+					self->HandlePacket(pkt);
+
 
 				self->Recv();
 			}
@@ -34,6 +40,12 @@ void Session::Recv()
 				// TODO: SessionManager에 RemoveSession(GetSessionId()) 알림 필요
 			}
 		});
+}
+
+void Session::HandlePacket(const tempPacket& pkt)
+{
+	// TODO  PacketHandler 클래스 생성하고 조건문 대신 Action 형식으로 변경
+	cout << "Session " << GetSessionId() << " HandlePacket body size: " << pkt.GetBody() << '\n';
 }
 
 void Session::Send(const char* msg, int size)

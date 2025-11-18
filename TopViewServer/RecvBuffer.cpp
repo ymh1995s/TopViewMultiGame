@@ -1,6 +1,56 @@
 #include "pch.h"
 #include "RecvBuffer.h"
 
+
+// TODO : 삭제하고 아래 attachData() 사용
+vector<tempPacket> RecvBuffer::attachData(char* data, size_t size)
+{
+	vector<tempPacket> packets;
+
+	// 이전에 남아있던 데이터 + 새로 들어온 데이터 결합 (매 호출 새 버퍼 생성)
+	vector<char> combined;
+	combined.reserve(buffer.size() + size);
+	if (!buffer.empty())
+		combined.insert(combined.end(), buffer.begin(), buffer.end());
+	if (size > 0)
+		combined.insert(combined.end(), data, data + size);
+
+	size_t read = 0;
+
+	// 패킷 파싱
+	while (combined.size() - read >= sizeof(uint32_t))
+	{
+		uint32_t bodySize = 0;
+		memcpy(&bodySize, combined.data() + read, sizeof(uint32_t));
+		uint32_t packetSize = sizeof(uint32_t) + bodySize;
+
+		if (combined.size() - read >= packetSize)
+		{
+			tempPacket pkt;
+			pkt.SetBody(combined.data() + read + sizeof(uint32_t), bodySize);
+			packets.emplace_back(pkt);
+			read += packetSize;
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	// 처리되지 않은 데이터만 멤버 버퍼로 보관 (최적화 함수 없음)
+	if (read < combined.size())
+	{
+		buffer.assign(combined.begin() + read, combined.end());
+	}
+	else
+	{
+		buffer.clear();
+	}
+
+	return packets;
+}
+
+/*
 vector<tempPacket> RecvBuffer::attachData(char* data, size_t size)
 {
 	vector<tempPacket> packets;
@@ -52,15 +102,16 @@ vector<tempPacket> RecvBuffer::attachData(char* data, size_t size)
 
 	return packets;
 }
+*/
 
 void RecvBuffer::Clear()
 {
 	readPos = writePos = 0;
 }
 
-void RecvBuffer::Clear(size_t remainedDataSize)
-{
-	memcpy(buffer, buffer + readPos, remainedDataSize);
-	readPos = 0;
-	writePos = remainedDataSize;
-}
+//void RecvBuffer::Clear(size_t remainedDataSize)
+//{
+//	memcpy(buffer, buffer + readPos, remainedDataSize);
+//	readPos = 0;
+//	writePos = remainedDataSize;
+//}

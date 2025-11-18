@@ -5,10 +5,10 @@
 using namespace std;
 using boost::asio::ip::tcp;
 
-class ASIO
+class Listner
 {
 public:
-	ASIO(boost::asio::io_context& io_context, int port, shared_ptr<SessionManager> sessionManager )
+	Listner(boost::asio::io_context& io_context, int port, shared_ptr<SessionManager> sessionManager )
 		: io_context(io_context), port(port), sessionManager(sessionManager),
 		acceptor(io_context, tcp::endpoint(tcp::v4(), port))
 	{

@@ -20,7 +20,7 @@
     <ClCompile Include="Room.cpp">
       <Filter>Contents</Filter>
     </ClCompile>
-    <ClCompile Include="ASIO.cpp">
+    <ClCompile Include="Listener.cpp">
       <Filter>Network</Filter>
     </ClCompile>
     <ClCompile Include="RecvBuffer.cpp">
@@ -46,7 +46,7 @@
     <ClInclude Include="Room.h">
       <Filter>Contents</Filter>
     </ClInclude>
-    <ClInclude Include="ASIO.h">
+    <ClInclude Include="Listener.h">
       <Filter>Network</Filter>
     </ClInclude>
     <ClInclude Include="RecvBuffer.h">

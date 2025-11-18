@@ -4,12 +4,12 @@
 
 // ASIO.cpp
 
-void Listner::Start()
+void Listener::Start()
 {
 	DoAccept();
 }
 
-void Listner::DoAccept()
+void Listener::DoAccept()
 {
 	shared_ptr<tcp::socket> socket = make_shared<tcp::socket>(io_context);
 

@@ -12,8 +12,8 @@ int main()
 
 	// ASIO
 	boost::asio::io_context io_context;
-    Listner asio(io_context, 7777, sessionManager);
-	asio.Start();
+    Listener listener(io_context, 7777, sessionManager);
+	listener.Start();
 
 	cout << "Here is Server.. \n";
 

@@ -3,9 +3,9 @@
 
 
 // TODO : 삭제하고 아래 attachData() 사용
-vector<tempPacket> RecvBuffer::attachData(char* data, size_t size)
+vector<Protocol::C_Chat> RecvBuffer::attachData(char* data, size_t size)
 {
-	vector<tempPacket> packets;
+	vector<Protocol::C_Chat> messages;
 
 	// 이전에 남아있던 데이터 + 새로 들어온 데이터 결합 (매 호출 새 버퍼 생성)
 	vector<char> combined;
@@ -20,15 +20,28 @@ vector<tempPacket> RecvBuffer::attachData(char* data, size_t size)
 	// 패킷 파싱
 	while (combined.size() - read >= sizeof(uint32_t))
 	{
-		uint32_t bodySize = 0;
-		memcpy(&bodySize, combined.data() + read, sizeof(uint32_t));
-		uint32_t packetSize = sizeof(uint32_t) + bodySize;
+		uint32_t netBodySize = 0;
+		memcpy(&netBodySize, combined.data() + read, sizeof(uint32_t));
+		uint32_t bodySize = ntohl(netBodySize);
+
+		uint32_t packetSize = static_cast<uint32_t>(sizeof(uint32_t)) + bodySize;
 
 		if (combined.size() - read >= packetSize)
 		{
-			tempPacket pkt;
-			pkt.SetBody(combined.data() + read + sizeof(uint32_t), bodySize);
-			packets.emplace_back(pkt);
+			Protocol::C_Chat chat;
+			const char* bodyPtr = combined.data() + read + sizeof(uint32_t);
+
+			if (chat.ParseFromArray(bodyPtr, static_cast<int>(bodySize)))
+			{
+				messages.emplace_back(std::move(chat));
+			}
+			else
+			{
+				std::cerr << "RecvBuffer: C_Chat ParseFromArray failed\n";
+				// 파싱 실패 시 정책: 여기서는 루프 종료(추가 조치 필요)
+				break;
+			}
+
 			read += packetSize;
 		}
 		else
@@ -47,7 +60,7 @@ vector<tempPacket> RecvBuffer::attachData(char* data, size_t size)
 		buffer.clear();
 	}
 
-	return packets;
+	return messages;
 }
 
 /*

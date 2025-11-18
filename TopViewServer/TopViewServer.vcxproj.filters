@@ -55,7 +55,6 @@
     <ClInclude Include="RecvBuffer.h">
       <Filter>Buffer</Filter>
     </ClInclude>
-    <ClInclude Include="tempPacket.h" />
     <ClInclude Include="Protocol.pb.h">
       <Filter>Protobuf</Filter>
     </ClInclude>

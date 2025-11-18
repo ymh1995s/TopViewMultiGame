@@ -21,13 +21,14 @@ void Session::Recv()
 			{
 				//std::cout << "Session " << self->GetSessionId() << " recv: " << std::string(self->tempRecvBuffer, length) << "\n";
 
-				vector<tempPacket> packets = self->recvBuffer.attachData(self->tempRecvBuffer,length);
+				vector<Protocol::C_Chat> messages = self->recvBuffer.attachData(self->tempRecvBuffer, length);
 
-				cout << "Session " << self->GetSessionId() << " received " << packets.size() << " packets.\n";
+
+				cout << "Session " << self->GetSessionId() << " received " << messages.size() << " packets.\n";
 				
 				// TODO : 삭제, 생성자 - 소비자 패턴으로 변경
 				// 네트워크와 처리 로직은 분리되어야 한다.
-				for (auto& pkt : packets)
+				for (auto& pkt : messages)
 					self->HandlePacket(pkt);
 
 
@@ -42,10 +43,10 @@ void Session::Recv()
 		});
 }
 
-void Session::HandlePacket(const tempPacket& pkt)
+void Session::HandlePacket(const Protocol::C_Chat& pkt)
 {
 	// TODO  PacketHandler 클래스 생성하고 조건문 대신 Action 형식으로 변경
-	cout << "Session " << GetSessionId() << " HandlePacket body size: " << pkt.GetBody() << '\n';
+	cout << "Session " << GetSessionId() << " HandlePacket message: " << pkt.message() << '\n';
 }
 
 void Session::Send(const char* msg, int size)

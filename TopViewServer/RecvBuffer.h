@@ -1,12 +1,12 @@
 #pragma once
-#include "tempPacket.h"
+#include "Protocol.pb.h"
 
 using namespace std;
 
 class RecvBuffer
 {
 public:
-	vector<tempPacket> attachData(char* data, size_t size);
+	vector<Protocol::C_Chat> attachData(char* data, size_t size);
 
 private:
 	void Clear();

@@ -3,6 +3,7 @@
 #include <boost/asio.hpp>
 #include <thread>
 #include <chrono>
+#include "Protocol.pb.h"
 
 using namespace std;
 
@@ -12,37 +13,10 @@ using namespace std;
 #pragma comment(lib, "Protobuf\\Release\\libprotobuf.lib")
 #endif
 
-
 using boost::asio::ip::tcp;
 
 const char SERVER_IP[] = "127.0.0.1";
 const int SERVER_PORT = 7777;
-
-class tempPacket
-{
-public:
-	void SetBody(const std::string& str)
-	{
-		body = str;
-		size = static_cast<uint32_t>(body.size());
-	}
-
-	void SetBody(const char* data, size_t len/* Body Len */)
-	{
-		body.assign(data, len); // assign : 복사 함수 
-		size = static_cast<uint32_t>(body.size());
-	}
-
-	uint32_t GetSize() const { return size; }
-	const std::string& GetBody() const { return body; }
-
-private:
-	uint32_t size;
-	string body;
-};
-
-
-
 
 void do_read(tcp::socket& socket)
 {
@@ -127,17 +101,27 @@ int main()
 		int packetCount = loopCount; // 1,2,3
 		for (int i = 0; i < packetCount; ++i)
 		{
-			// tempPacket 생성
-			auto pkt_ptr = make_shared<tempPacket>();
-			pkt_ptr->SetBody(userInput);
+			Protocol::C_Chat chat;
+			chat.set_message(userInput);
 
-			// 송신용 버퍼 생성 (헤더 + 바디)
-			uint32_t bodySize = static_cast<uint32_t>(pkt_ptr->GetSize());
+			// 바디 크기 계산
+			uint32_t bodySize = static_cast<uint32_t>(chat.ByteSizeLong());
+
+			// 전송 버퍼(헤더 4바이트 네트워크 바이트순 + 바디)
 			auto sendBuffer = make_shared<vector<char>>(sizeof(uint32_t) + bodySize);
-			memcpy(sendBuffer->data(), &bodySize, sizeof(uint32_t));
-			memcpy(sendBuffer->data() + sizeof(uint32_t), pkt_ptr->GetBody().data(), bodySize);
 
-			// async_write로 송신
+			// 길이 헤더는 네트워크 바이트 순으로
+			uint32_t netBody = htonl(bodySize);
+			memcpy(sendBuffer->data(), &netBody, sizeof(netBody));
+
+			// protobuf를 직접 버퍼에 직렬화 (중간 std::string 불필요)
+			if (!chat.SerializeToArray(sendBuffer->data() + sizeof(uint32_t), static_cast<int>(bodySize)))
+			{
+				cerr << "SerializeToArray failed\n";
+				continue;
+			}
+
+			// async_write로 송신 (sendBuffer를 캡처해 생명 보장)
 			boost::asio::async_write(socket, boost::asio::buffer(*sendBuffer),
 				[sendBuffer](const boost::system::error_code& ec, size_t)
 				{

@@ -24,7 +24,7 @@ public:
 	void Send(const char* msg, int size);
 	void Close();
 	void Recv();
-	void HandlePacket(const tempPacket& pkt);
+	void HandlePacket(const Protocol::C_Chat& pkt);
 
 private:
 	// TODO : TLS에서 했던것도 같고..?

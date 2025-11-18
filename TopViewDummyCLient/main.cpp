@@ -6,6 +6,13 @@
 
 using namespace std;
 
+#ifdef _DEBUG
+#pragma comment(lib, "Protobuf\\Debug\\libprotobufd.lib")
+#else
+#pragma comment(lib, "Protobuf\\Release\\libprotobuf.lib")
+#endif
+
+
 using boost::asio::ip::tcp;
 
 const char SERVER_IP[] = "127.0.0.1";

@@ -20,6 +20,7 @@ void Session::RegisterRecv()
 		{
 			if (!ec)
 			{
+				self->recvBuffer.SetWritePos(length);
 				self->ProcessRecv(length);
 				self->RegisterRecv();
 			}

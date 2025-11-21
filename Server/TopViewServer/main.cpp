@@ -11,6 +11,9 @@ int main()
 	// 실시간 서버 관련 클래스를 모아서 ServerService 클래스로 했던 것도 같고 
 	shared_ptr<SessionManager> sessionManager = make_shared<SessionManager>();
 
+	// 패킷매니저
+	PacketHandler::Init();
+
 	// ASIO
 	boost::asio::io_context io_context;
     Listener listener(io_context, 7777, sessionManager);

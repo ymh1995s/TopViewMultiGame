@@ -18,6 +18,13 @@ using boost::asio::ip::tcp;
 const char SERVER_IP[] = "127.0.0.1";
 const int SERVER_PORT = 7777;
 
+
+struct PacketHeader
+{
+	unsigned __int16 size;
+	unsigned __int16 id; // 프로토콜ID (ex. 1=로그인, 2=이동요청)
+};
+
 void do_read(tcp::socket& socket)
 {
 	char buffer[1024]; // 고정 크기 버퍼
@@ -107,15 +114,27 @@ int main()
 			// 바디 크기 계산
 			uint32_t bodySize = static_cast<uint32_t>(chat.ByteSizeLong());
 
-			// 전송 버퍼(헤더 4바이트 네트워크 바이트순 + 바디)
-			auto sendBuffer = make_shared<vector<char>>(sizeof(uint32_t) + bodySize);
+			// 전체 패킷 크기(헤더 + 바디)
+			const uint32_t totalSize = static_cast<uint32_t>(sizeof(PacketHeader)) + bodySize;
+			if (totalSize > std::numeric_limits<unsigned __int16>::max())
+			{
+				cerr << "packet too large, skip\n";
+				continue;
+			}
 
-			// 길이 헤더는 네트워크 바이트 순으로
-			uint32_t netBody = htonl(bodySize);
-			memcpy(sendBuffer->data(), &netBody, sizeof(netBody));
+			// 전송 버퍼(헤더(PacketHeader) + 바디)
+			auto sendBuffer = make_shared<vector<char>>(totalSize);
+
+			// PacketHeader 작성
+			PacketHeader header;
+			header.size = static_cast<unsigned __int16>(totalSize); 
+			header.id = 1; 
+
+			// 헤더를 그대로 복사
+			memcpy(sendBuffer->data(), &header, sizeof(header));
 
 			// protobuf를 직접 버퍼에 직렬화 (중간 std::string 불필요)
-			if (!chat.SerializeToArray(sendBuffer->data() + sizeof(uint32_t), static_cast<int>(bodySize)))
+			if (!chat.SerializeToArray(sendBuffer->data() + sizeof(PacketHeader), static_cast<int>(bodySize)))
 			{
 				cerr << "SerializeToArray failed\n";
 				continue;

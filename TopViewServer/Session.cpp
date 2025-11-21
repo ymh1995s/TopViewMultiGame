@@ -1,38 +1,27 @@
 #include "pch.h"
 #include "Session.h"
 #include "SessionManager.h"
+#include "PacketHandler.h"
 
 void Session::Start(shared_ptr<tcp::socket> sock)
 {
 	socket = sock;
-	Recv();
+	RegisterRecv();
 }
 
-void Session::Recv()
+void Session::RegisterRecv()
 {
 	if (!socket || !socket->is_open()) return;
 
 	auto self = shared_from_this(); // 핸들러 내부에서 수명 보장용
 	// TODO : tempRecvBuffer는 삭제 예정인데 바로 RecvBuffer로 옮기는 방법은?
-	socket->async_read_some(boost::asio::buffer(tempRecvBuffer, sizeof(tempRecvBuffer)),
+	socket->async_read_some(boost::asio::buffer(recvBuffer.GetWritePos(), recvBuffer.GetWritableSize()),
 		[self](const boost::system::error_code& ec, size_t length)
 		{
 			if (!ec)
 			{
-				//std::cout << "Session " << self->GetSessionId() << " recv: " << std::string(self->tempRecvBuffer, length) << "\n";
-
-				vector<Protocol::C_Chat> messages = self->recvBuffer.attachData(self->tempRecvBuffer, length);
-
-
-				cout << "Session " << self->GetSessionId() << " received " << messages.size() << " packets.\n";
-				
-				// TODO : 삭제, 생성자 - 소비자 패턴으로 변경
-				// 네트워크와 처리 로직은 분리되어야 한다.
-				for (auto& pkt : messages)
-					self->HandlePacket(pkt);
-
-
-				self->Recv();
+				self->ProcessRecv(length);
+				self->RegisterRecv();
 			}
 			else
 			{
@@ -41,6 +30,48 @@ void Session::Recv()
 				// TODO: SessionManager에 RemoveSession(GetSessionId()) 알림 필요
 			}
 		});
+}
+
+void Session::ProcessRecv(size_t length )
+{
+	// TODO : 삭제, 생성자 - 소비자 패턴으로 변경
+	// 네트워크와 처리 로직은 분리되어야 한다.
+
+	if (length == 0)
+	{
+		cout << "Session " << GetSessionId()<<" recv 0 \n";
+		Close();
+		return;
+	}
+
+	while (true)
+	{
+		// 1. 헤더는 왔는가?
+		if (recvBuffer.GetReadableSize() < sizeof(PacketHeader))
+			break; 
+
+		// 2. 헤더 정보 확인
+		PacketHeader* header = reinterpret_cast<PacketHeader*>(recvBuffer.GetReadPos());
+		unsigned __int16 pktSize = header->size;
+		unsigned __int16 pktId = header->id;
+
+		// 3. 패킷 전체는 왔는지 확인
+		if (recvBuffer.GetReadableSize() < pktSize)
+			break;
+
+		// 4. 패킷 처리
+		BYTE* pktData = reinterpret_cast<BYTE*>(recvBuffer.GetReadPos()) + sizeof(PacketHeader);
+
+		if (GPacketHandler[pktId])
+		{
+			GPacketHandler[pktId](shared_from_this(), pktData, pktSize - sizeof(PacketHeader));
+		}
+
+		// 5. Readpos 이동
+		recvBuffer.SetReadPos(pktSize);
+
+		// 6. TODO CLEAR
+	}
 }
 
 void Session::HandlePacket(const Protocol::C_Chat& pkt)

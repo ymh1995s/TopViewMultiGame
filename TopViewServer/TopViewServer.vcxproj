@@ -131,6 +131,7 @@
   <ItemGroup>
     <ClCompile Include="Listener.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="PacketHandler.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">pch.h</PrecompiledHeaderFile>
@@ -142,18 +143,17 @@
     </ClCompile>
     <ClCompile Include="RecvBuffer.cpp" />
     <ClCompile Include="Room.cpp" />
-    <ClCompile Include="SendBuffer.cpp" />
     <ClCompile Include="Session.cpp" />
     <ClCompile Include="SessionManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Listener.h" />
+    <ClInclude Include="PacketHandler.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Player.h" />
     <ClInclude Include="Protocol.pb.h" />
     <ClInclude Include="RecvBuffer.h" />
     <ClInclude Include="Room.h" />
-    <ClInclude Include="SendBuffer.h" />
     <ClInclude Include="Session.h" />
     <ClInclude Include="SessionManager.h" />
   </ItemGroup>

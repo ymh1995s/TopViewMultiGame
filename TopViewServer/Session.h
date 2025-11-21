@@ -1,11 +1,16 @@
 #pragma once
 #include "RecvBuffer.h"
-#include "SendBuffer.h"
 using namespace std;
 using boost::asio::ip::tcp;
 
 class Player;
 class SessionManager;
+
+struct PacketHeader
+{
+	unsigned __int16 size;
+	unsigned __int16 id; // 프로토콜ID (ex. 1=로그인, 2=이동요청)
+};
 
 class Session : public enable_shared_from_this<Session>
 {
@@ -23,8 +28,11 @@ public:
 
 	void Send(const char* msg, int size);
 	void Close();
-	void Recv();
+	void RegisterRecv();
+	void ProcessRecv(size_t length );
 	void HandlePacket(const Protocol::C_Chat& pkt);
+
+	void CallHandler(BYTE* buffer, int len);
 
 private:
 	// TODO : TLS에서 했던것도 같고..?

@@ -116,3 +116,29 @@ obj/
 
 # Boost 라이브러리 전체 무시 => 용량이 커서 무시하기로 결정
 boost_1_88_0/
+
+# ----------------------------
+# Unity 프로젝트: TopViewGame/
+# ----------------------------
+
+# 라이브러리, 임시, 빌드 결과물
+TopViewGame/[Ll]ibrary/
+TopViewGame/[Tt]emp/
+TopViewGame/[Oo]bj/
+TopViewGame/[Bb]uild/
+TopViewGame/[Bb]uilds/
+TopViewGame/[Ll]ogs/
+TopViewGame/sysinfo.txt
+
+# Visual Studio 관련 Unity 파일
+TopViewGame/*.unityproj
+TopViewGame/*.suo
+TopViewGame/*.user
+TopViewGame/*.userprefs
+TopViewGame/*.pidb
+TopViewGame/*.booproj
+TopViewGame/*.svd
+TopViewGame/*.pdb
+TopViewGame/*.opendb
+TopViewGame/*.VC.db
+TopViewGame/*.pidb.meta

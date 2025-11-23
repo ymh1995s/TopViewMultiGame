@@ -1,8 +1,10 @@
 #pragma once
 using namespace std;
-class Room;
 
-class Player
+#include "Object.h"
+#include "Room.h"
+
+class Player : public Object
 {
 private:
 	weak_ptr<class Room> room;

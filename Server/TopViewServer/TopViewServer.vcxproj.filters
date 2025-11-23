@@ -8,9 +8,6 @@
     <ClCompile Include="Session.cpp">
       <Filter>Session</Filter>
     </ClCompile>
-    <ClCompile Include="Player.cpp">
-      <Filter>Contents</Filter>
-    </ClCompile>
     <ClCompile Include="pch.cpp">
       <Filter>ETC</Filter>
     </ClCompile>
@@ -29,6 +26,21 @@
     <ClCompile Include="PacketHandler.cpp">
       <Filter>Session</Filter>
     </ClCompile>
+    <ClCompile Include="Player.cpp">
+      <Filter>Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Dust.cpp">
+      <Filter>Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Object.cpp">
+      <Filter>Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Obstacle.cpp">
+      <Filter>Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Projectile.cpp">
+      <Filter>Object</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SessionManager.h">
@@ -36,9 +48,6 @@
     </ClInclude>
     <ClInclude Include="Session.h">
       <Filter>Session</Filter>
-    </ClInclude>
-    <ClInclude Include="Player.h">
-      <Filter>Contents</Filter>
     </ClInclude>
     <ClInclude Include="pch.h">
       <Filter>ETC</Filter>
@@ -57,6 +66,21 @@
     </ClInclude>
     <ClInclude Include="PacketHandler.h">
       <Filter>Session</Filter>
+    </ClInclude>
+    <ClInclude Include="Player.h">
+      <Filter>Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Dust.h">
+      <Filter>Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Object.h">
+      <Filter>Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Obstacle.h">
+      <Filter>Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Projectile.h">
+      <Filter>Object</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -77,6 +101,9 @@
     </Filter>
     <Filter Include="Protobuf">
       <UniqueIdentifier>{181719e5-91ba-40f2-b145-9edb28895135}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Object">
+      <UniqueIdentifier>{20b93020-cd73-4732-bfff-cab979b6944d}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

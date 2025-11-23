@@ -2,6 +2,7 @@
 #include "Session.h"
 #include "SessionManager.h"
 #include "PacketHandler.h"
+#include "Room.h"
 
 void Session::Start(shared_ptr<tcp::socket> sock)
 {

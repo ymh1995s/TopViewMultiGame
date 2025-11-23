@@ -11,10 +11,10 @@ enum ObjectType
 class Object
 {
 public:
-	uint32_t _objectId;
+	atomic<uint32_t> _objectId;
 	pair<float, float> _position;
+	ObjectType _type;
 
 private:
-	ObjectType _type;
 };
 

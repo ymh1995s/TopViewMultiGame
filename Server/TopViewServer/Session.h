@@ -25,7 +25,6 @@ public:
 	shared_ptr<Player> GetPlayer() const { return player; } // 외부에서 수정하지 못하게 하기 위해 const 추가 
 
 	void Start(shared_ptr<tcp::socket> socket);
-
 	void Send(const char* msg, int size);
 	void Close();
 	void RegisterRecv();

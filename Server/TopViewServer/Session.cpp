@@ -3,11 +3,13 @@
 #include "SessionManager.h"
 #include "PacketHandler.h"
 #include "Room.h"
+#include "Player.h"
 
 void Session::Start(shared_ptr<tcp::socket> sock)
 {
 	socket = sock;
 	RegisterRecv();
+	EnterRoom();
 }
 
 void Session::RegisterRecv()
@@ -69,6 +71,9 @@ void Session::ProcessRecv(size_t length )
 			GPacketHandler[pktId](shared_from_this(), pktData, pktSize - sizeof(PacketHeader));
 		}
 
+		// TEST
+		GRoom->countPackets.fetch_add(1, std::memory_order_relaxed);
+
 		// 5. Readpos 이동
 		recvBuffer.SetReadPos(pktSize);
 
@@ -76,10 +81,18 @@ void Session::ProcessRecv(size_t length )
 	}
 }
 
-void Session::HandlePacket(const Protocol::C_Chat& pkt)
+void Session::EnterRoom()
 {
-	// TODO  PacketHandler 클래스 생성하고 조건문 대신 Action 형식으로 변경
-	cout << "Session " << GetSessionId() << " HandlePacket message: " << pkt.message() << '\n';
+	if(player != nullptr) return;
+
+	// TODO : 플레이어에서 Start ㅎ마수 따위로 묶기
+	player = make_shared<Player>();
+	player->SetId();
+	player->_type = OBJECT_TYPE_PLAYER;
+	player->SetRoom(GRoom);
+	player->SetSession(shared_from_this());
+
+	GRoom->EnterObject(player);
 }
 
 void Session::Send(const char* msg, int size)
@@ -94,7 +107,7 @@ void Session::Send(const char* msg, int size)
 		[self, testMSG](const boost::system::error_code& ec, size_t)
 		{
 			if (ec) std::cerr << "send err: " << ec.message() << "\n";
-			else cout << "Session " << self->GetSessionId() << " said :" << testMSG << '\n';
+			//else cout << "Session " << self->GetSessionId() << " said :" << testMSG << '\n';
 		});
 }
 

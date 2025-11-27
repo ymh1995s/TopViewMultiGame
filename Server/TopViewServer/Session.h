@@ -29,9 +29,8 @@ public:
 	void Close();
 	void RegisterRecv();
 	void ProcessRecv(size_t length );
-	void HandlePacket(const Protocol::C_Chat& pkt);
 
-	void CallHandler(BYTE* buffer, int len);
+	void EnterRoom();
 
 private:
 	// TODO : TLS에서 했던것도 같고..?

@@ -1,5 +1,19 @@
 syntax = "proto3";
 package Protocol;
+enum MsgId {
+	S_CONNECTED = 0;
+	C_ENTER = 1; 
+	S_ENTER = 2;
+	C_CHAT = 3; // Broadcast Test
+	S_CHAT = 4; // Broadcast Test
+}
+
+message S_Connected {}
+message C_Enter {}
+message S_Enter
+{
+	uint32 classNo = 1;
+}
 
 message C_Chat 
 {

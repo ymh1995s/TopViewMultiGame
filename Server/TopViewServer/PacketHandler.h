@@ -20,7 +20,7 @@ enum : int // TODO : 삭제
 	S_CHAT = 2,
 };
 
-bool Handle_C_CLASS_CHOICE(shared_ptr<Session> session, Protocol::C_Chat& pkt);
+bool Handle_C_CHAT(shared_ptr<Session> session, Protocol::C_Chat& pkt);
 
 class PacketHandler
 {
@@ -29,7 +29,7 @@ public:
 	{
 		GPacketHandler[C_CHAT] = [](shared_ptr<Session> session, BYTE* buffer, int len) 
 			{
-				return HandlePacket<Protocol::C_Chat>(Handle_C_CLASS_CHOICE, session, buffer, len); 
+				return HandlePacket<Protocol::C_Chat>(Handle_C_CHAT, session, buffer, len); 
 			};
 		/*
 			GPacketHandler[C_PLAYER_MOVE] = [](PacketSessionRef& session, BYTE* buffer, int32 len) { return HandlePacket<Protocol::C_PlayerMove>(Handle_C_PLAYER_MOVE, session, buffer, len); };

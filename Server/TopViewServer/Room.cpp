@@ -11,6 +11,9 @@ void Room::Init()
 	CreateObstacle();
 	CreateDust();
 	InitObjectTable();
+
+	t = std::thread(&Room::COUTPACKETCOUNT, this);
+	t.detach(); // 안전하게 백그라운드 실행
 }
 
 void Room::EnterObject(const shared_ptr<Object>& object)
@@ -29,6 +32,8 @@ void Room::ExitObject(const shared_ptr<Object>& object)
 
 void Room::Broadcast(const string& msg)
 {
+	//cout << "Room Broadcast: " << msg << '\n';
+	//countPackets.fetch_add(_players.size(), memory_order_relaxed);
 	lock_guard<mutex> guard(lock);
 	for (const auto& [id, player] : _players) // C++ 17 structured binding
 	{

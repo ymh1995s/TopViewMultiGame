@@ -37,6 +37,20 @@ private: // function 연습
 
 private:
 	mutex lock;
+
+public:
+	atomic<int> countPackets = 0; // 테스트용
+	thread t;
+	void COUTPACKETCOUNT()
+	{
+		while (true)
+		{
+			cout << "{Player:countPackets} : " <<_players.size()<< " "<< countPackets.load() << '\n';
+			countPackets.store(0);
+
+			this_thread::sleep_for(std::chrono::seconds(1));
+		}
+	}
 };
 
-extern shared_ptr<Room> GRoom; //tjsdjsaks
+extern shared_ptr<Room> GRoom; // 선언만

@@ -11,7 +11,12 @@ enum ObjectType
 class Object
 {
 public:
-	atomic<uint32_t> _objectId;
+	virtual ~Object() = default;
+public:
+	int SetId();
+public:
+	int _objectId;
+	static inline  atomic<int> nextId { 0 };
 	pair<float, float> _position;
 	ObjectType _type;
 

@@ -74,7 +74,7 @@ private:
 	static bool HandlePacket(ProcessFunc func, shared_ptr<Session> session, BYTE* buffer, int len)
 	{
 		PacketType pkt;
-		if (pkt.ParseFromArray(buffer + sizeof(PacketHeader), len - sizeof(PacketHeader)) == false)
+		if (pkt.ParseFromArray(buffer, len) == false)
 			return false;
 
 		return func(session, pkt);

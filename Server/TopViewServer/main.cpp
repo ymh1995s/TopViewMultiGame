@@ -23,9 +23,24 @@ int main()
     Listener listener(io_context, 7777, sessionManager);
 	listener.Start();
 
-	cout << "Here is Server.. \n";
+    cout << "Here is Server.. \n";
 
-	io_context.run();
+    const int workerCount = std::thread::hardware_concurrency();
+    vector<thread> workers;
+    workers.reserve(workerCount);
+    for (int i = 0; i < workerCount; ++i)
+    {
+        workers.emplace_back([&io_context]() {
+            io_context.run();
+            });
+    }
 
-	return 0;
+    // 1은 메인 스레드
+    cout << workerCount + 1 << " workers started.\n";
+    io_context.run();
+
+    for (auto& t : workers)
+        t.join();
+
+    return 0;
 }

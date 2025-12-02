@@ -4,6 +4,7 @@
 #include "Projectile.h"
 #include "Dust.h"
 #include "Obstacle.h"
+#include "Job.h"
 
 void Room::Init()
 {
@@ -32,9 +33,6 @@ void Room::ExitObject(const shared_ptr<Object>& object)
 
 void Room::Broadcast(const string& msg)
 {
-	//cout << "Room Broadcast: " << msg << '\n';
-	//countPackets.fetch_add(_players.size(), memory_order_relaxed);
-	lock_guard<mutex> guard(lock);
 	for (const auto& [id, player] : _players) // C++ 17 structured binding
 	{
 		if (auto session = player->GetSession().lock()) // weak_ptr → shared_ptr 안전 접근
@@ -44,8 +42,54 @@ void Room::Broadcast(const string& msg)
 	}
 }
 
+void Room::PushMoveJob(Job job)
+{
+}
+
+void Room::PushETCJob(Job job)
+{
+	{
+		lock_guard<std::mutex> guard(lock);
+		// TODO Move로 최적화
+		ETCQueue.push(job);
+		//ETCQueue.push(std::move(job));
+	}
+
+	bool expected = false;
+	// ETCflushing가 false라면, true로 바꾼 후에 if 내부 내용 실행
+	if (ETCflushing.compare_exchange_strong(expected, true))
+	{
+		FlushETCQueue();
+	}
+}
+
+void Room::FlushETCQueue()
+{
+	if(ETCQueue.size() > 1) 
+		cout << "q size : " << ETCQueue.size() << '\n';
+
+	queue<Job> localQueue;	
+	{
+		lock_guard<std::mutex> guard(lock);
+		// TODO Move로 최적화
+		while(ETCQueue.size()) {
+			localQueue.push(ETCQueue.front());
+			ETCQueue.pop();
+		}
+	}
+
+	while(localQueue.size()) {
+		localQueue.front().Execute();
+		localQueue.pop();
+	}
+
+	// flush 완료 표시
+	ETCflushing.store(false, std::memory_order_release);
+}
+
 void Room::CreateObstacle()
 {
+
 }
 
 void Room::InitObjectTable()

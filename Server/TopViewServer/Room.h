@@ -1,4 +1,6 @@
 #pragma once
+#include "Job.h"
+#include "PQJob.h"
 
 class Player;
 class Projectile;
@@ -16,9 +18,19 @@ public:
 	void ExitObject(const shared_ptr<Object>& Object);
 	void Broadcast(const string& msg);
 
+public:
+	void PushMoveJob(class Job job);
+	void PushETCJob(class Job job);
+	void PushPQJob(class PQJob job);
+	void FlushETCQueue();
+
+
 private: // 아래 애들은 나중에 생각하자
 	void CreateDust();
 	void CreateObstacle();
+	//======================
+
+
 private:
 	void InitObjectTable();
 
@@ -36,10 +48,17 @@ private: // function 연습
 	EraseFunc _eraseObjectTable[3];
 
 private:
+	queue<class Job> MoveQueues[4];
+	queue<class Job> ETCQueue;
+	atomic<bool> ETCflushing = false;
+	//priority_queue<PQJob, std::vector<PQJob>, PQJobCompare> PQQueue;
+
+private:
 	mutex lock;
 
+// 테스트용
 public:
-	atomic<int> countPackets = 0; // 테스트용
+	atomic<int> countPackets = 0; 
 	thread t;
 	void COUTPACKETCOUNT()
 	{

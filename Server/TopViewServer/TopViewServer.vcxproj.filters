@@ -41,6 +41,12 @@
     <ClCompile Include="Projectile.cpp">
       <Filter>Object</Filter>
     </ClCompile>
+    <ClCompile Include="Job.cpp">
+      <Filter>Job</Filter>
+    </ClCompile>
+    <ClCompile Include="PQJob.cpp">
+      <Filter>Job</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SessionManager.h">
@@ -82,6 +88,12 @@
     <ClInclude Include="Projectile.h">
       <Filter>Object</Filter>
     </ClInclude>
+    <ClInclude Include="Job.h">
+      <Filter>Job</Filter>
+    </ClInclude>
+    <ClInclude Include="PQJob.h">
+      <Filter>Job</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Session">
@@ -104,6 +116,9 @@
     </Filter>
     <Filter Include="Object">
       <UniqueIdentifier>{20b93020-cd73-4732-bfff-cab979b6944d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Job">
+      <UniqueIdentifier>{8963c9fb-9141-4c3e-9e33-a6c41fd1d4a1}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

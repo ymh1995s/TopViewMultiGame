@@ -131,6 +131,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Dust.cpp" />
+    <ClCompile Include="Job.cpp" />
     <ClCompile Include="Listener.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Object.cpp" />
@@ -141,6 +142,7 @@
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <ClCompile Include="Player.cpp" />
+    <ClCompile Include="PQJob.cpp" />
     <ClCompile Include="Projectile.cpp" />
     <ClCompile Include="Protocol.pb.cc">
       <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdcpp20</LanguageStandard>
@@ -153,12 +155,14 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Dust.h" />
+    <ClInclude Include="Job.h" />
     <ClInclude Include="Listener.h" />
     <ClInclude Include="Object.h" />
     <ClInclude Include="Obstacle.h" />
     <ClInclude Include="PacketHandler.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Player.h" />
+    <ClInclude Include="PQJob.h" />
     <ClInclude Include="Projectile.h" />
     <ClInclude Include="Protocol.pb.h" />
     <ClInclude Include="RecvBuffer.h" />

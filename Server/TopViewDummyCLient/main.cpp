@@ -30,7 +30,7 @@ struct PacketHeader
 
 int main(int argc, char* argv[])
 {
-    int clientCount = 90; // 1127 메모 : 최적화 전 90명까지 수용
+    int clientCount = 100; // 1127 메모 : 최적화 전 90명까지 수용
     if (argc >= 2)
     {
         try { clientCount = std::stoi(argv[1]); } catch(...) { clientCount = 10; }

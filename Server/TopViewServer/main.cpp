@@ -15,13 +15,13 @@ int main()
 	// 패킷매니저
 	PacketHandler::Init();
 
-	// 단일 Room이기 때문에 RoomManager까지 가지 않는다.
-	GRoom->Init();
-
 	// ASIO
 	boost::asio::io_context io_context;
     Listener listener(io_context, 7777, sessionManager);
 	listener.Start();
+
+    // 단일 Room이기 때문에 RoomManager까지 가지 않는다.
+    GRoom->Init(io_context);
 
     cout << "Here is Server.. \n";
 

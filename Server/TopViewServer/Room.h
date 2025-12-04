@@ -13,7 +13,7 @@ using namespace std;
 class Room
 {
 public:
-	void Init();
+	void Init(boost::asio::io_context& io);
 	void EnterObject(const shared_ptr<Object>& Object);
 	void ExitObject(const shared_ptr<Object>& Object);
 	void Broadcast(const string& msg);
@@ -55,6 +55,9 @@ private:
 
 private:
 	mutex lock;
+
+private:
+	boost::asio::io_context* _io;
 
 // 테스트용
 public:

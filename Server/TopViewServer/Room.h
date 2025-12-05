@@ -14,6 +14,7 @@ class Room
 {
 public:
 	void Init(boost::asio::io_context& io);
+	void InitObjectTable();
 	void EnterObject(const shared_ptr<Object>& Object);
 	void ExitObject(const shared_ptr<Object>& Object);
 	void Broadcast(const string& msg);
@@ -30,10 +31,6 @@ private: // 아래 애들은 나중에 생각하자
 	void CreateObstacle();
 	//======================
 
-
-private:
-	void InitObjectTable();
-
 private:
 	unordered_map<uint32_t, shared_ptr<Player>> _players;
 	unordered_map<uint32_t, shared_ptr<Projectile>> _projectiles;
@@ -43,7 +40,6 @@ private:
 private: // function 연습
 	using InsertFunc = function<void(const shared_ptr<Object>&)>;
 	InsertFunc _insertObjectTable[3];
-
 	using EraseFunc = function<void(const shared_ptr<Object>&)>;
 	EraseFunc _eraseObjectTable[3];
 
@@ -55,8 +51,6 @@ private:
 
 private:
 	mutex lock;
-
-private:
 	boost::asio::io_context* _io;
 
 // 테스트용

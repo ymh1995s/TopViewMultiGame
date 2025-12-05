@@ -8,8 +8,8 @@
 void Session::Start(shared_ptr<tcp::socket> sock)
 {
 	socket = sock;
-	RegisterRecv();
 	EnterRoom();
+	RegisterRecv();
 }
 
 void Session::RegisterRecv()

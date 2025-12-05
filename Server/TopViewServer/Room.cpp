@@ -36,7 +36,7 @@ void Room::Broadcast(const string& msg)
 {
 	for (const auto& [id, player] : _players) // C++ 17 structured binding
 	{
-		if (auto session = player->GetSession().lock()) // weak_ptr → shared_ptr 안전 접근
+		if (auto session = player->GetSession())
 		{
 			session->Send(msg.c_str(), static_cast<int>(msg.size()));
 		}

@@ -38,7 +38,8 @@ void Room::Broadcast(const string& msg)
 	{
 		if (auto session = player->GetSession())
 		{
-			session->Send(msg.c_str(), static_cast<int>(msg.size()));
+			session->SendQueuePush(msg.c_str(), static_cast<int>(msg.size()));
+			//session->Send(msg.c_str(), static_cast<int>(msg.size()));
 		}
 	}
 }
@@ -66,8 +67,8 @@ void Room::PushETCJob(Job job)
 
 void Room::FlushETCQueue()
 {
-	if (ETCQueue.size() > 1)
-		cout << "q size : " << ETCQueue.size() << '\n';
+	//if (ETCQueue.size() > 1)
+	//	cout << "q size : " << ETCQueue.size() << '\n';
 
 	queue<Job> localQueue;
 	{

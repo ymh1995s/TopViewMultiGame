@@ -77,7 +77,8 @@ void Session::ProcessRecv(size_t length )
 		// 5. Readpos 이동
 		recvBuffer.SetReadPos(pktSize);
 
-		// 6. TODO CLEAR
+		// 6. CLEAR
+		recvBuffer.Clear();
 	}
 }
 

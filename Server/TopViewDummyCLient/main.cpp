@@ -32,7 +32,8 @@ int main(int argc, char* argv[])
 {
     // 1127 메모 : 최적화 전 90명까지 수용
     // 1204 메모 : 브로드 캐스트 스레드 분산 후 110명까지 수용
-    int clientCount = 110; 
+    // 1213 메모 : Send 모아보내기 후 130명까지 수용
+    int clientCount = 140; 
     if (argc >= 2)
     {
         try { clientCount = std::stoi(argv[1]); } catch(...) { clientCount = 10; }
@@ -65,6 +66,35 @@ int main(int argc, char* argv[])
         }
         sockets.push_back(sock);
     }
+
+    // test : 하나의 세션만 recv 확인용
+    auto sock = sockets[0];
+    auto recvBuffer = std::make_shared<std::vector<char>>(1024);
+
+    std::function<void()> startRecv;
+    startRecv = [sock, recvBuffer, &startRecv]()
+        {
+            sock->async_read_some(boost::asio::buffer(*recvBuffer),
+                [sock, recvBuffer, &startRecv](const boost::system::error_code& ec, std::size_t bytes_transferred)
+                {
+                    if (!ec)
+                    {
+                        std::cout << "Received " << bytes_transferred << " bytes from server\n";
+                        startRecv(); // 다음 recv 예약
+                    }
+                    else
+                    {
+                        std::cerr << "Receive error: " << ec.message() << "\n";
+                    }
+                });
+        };
+
+    //startRecv(); // 최초 호출
+
+    // 이벤트 루프 실행
+    std::thread ioThread([&io_context]() { io_context.run(); });
+
+    ///////////////////////// test : 하나의 세션만 recv 확인용
 
     std::cout << "Started " << clientCount << " dummy clients (no read), sending C_CHAT at 100Hz. Press Enter to stop." << std::endl;
 

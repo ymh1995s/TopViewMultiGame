@@ -32,6 +32,65 @@ public:
 
 	void EnterRoom();
 
+	// Send 모아 보내기 Test TODO : 주석 삭제///////////////////////
+private:
+	deque<string> sendQueue;
+	atomic<bool> sendQueueProcess = false;
+	mutex sendlock;
+public:
+	void SendQueuePush(const char* msg, int size)
+	{
+		{
+			std::lock_guard<std::mutex> guard(sendlock);
+			// TODO : emplace_back으로 수정
+			std::string str(msg, size);
+			sendQueue.push_back(str);
+		}
+
+		bool expected = false;
+		if (sendQueueProcess.compare_exchange_strong(expected, true))
+		{
+			DoSend();
+		}
+	}
+
+	void DoSend()
+	{
+		std::string buffer;
+		{
+			std::lock_guard<std::mutex> guard(sendlock);
+
+			if (sendQueue.empty())
+			{
+				sendQueueProcess.store(false, std::memory_order_release);
+				return;
+			}
+
+			for (auto& s : sendQueue) buffer += s;
+			sendQueue.clear();
+		}
+
+		// TODO : buffer move 복사 
+		auto bufferPtr = std::make_shared<std::string>(buffer);
+		auto self = shared_from_this();
+
+		boost::asio::async_write(*socket, boost::asio::buffer(*bufferPtr),
+			[self, bufferPtr](boost::system::error_code ec, size_t)
+			{
+				if (!ec)
+				{
+					// 다음 메시지 전송
+					self->DoSend();
+				}
+				else
+				{
+					std::cerr << "send err: " << ec.message() << "\n";
+					self->Close();
+				}			
+			});
+	}
+	//////////////////////////////////////
+
 private:
 	// TODO : TLS에서 했던것도 같고..?
 	const int sessionId; // 세션 아이디, 세션 매니저에서 부여

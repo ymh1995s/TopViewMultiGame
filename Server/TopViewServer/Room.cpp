@@ -34,6 +34,16 @@ void Room::ExitObject(const shared_ptr<Object>& object)
 
 void Room::Broadcast(const string& msg)
 {
+	// 1. 락을 사용한 스냅샷으로 플레이어 목록 캡쳐
+	std::vector<std::pair<uint32_t, std::shared_ptr<Player>>> playersSnapshot;
+	{
+		std::lock_guard<std::mutex> guard(lock[0]); // Enter/Exit와 동일한 락 사용
+		playersSnapshot.reserve(_players.size());
+		for (const auto& kv : _players)
+			playersSnapshot.emplace_back(kv.first, kv.second);
+	}
+
+	// 2. 긴 작업은 락없이 스냅샷으로
 	for (const auto& [id, player] : _players) // C++ 17 structured binding
 	{
 		if (auto session = player->GetSession())

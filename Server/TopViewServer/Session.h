@@ -34,61 +34,69 @@ public:
 
 	// Send 모아 보내기 Test TODO : 주석 삭제///////////////////////
 private:
-	deque<string> sendQueue;
-	atomic<bool> sendQueueProcess = false;
-	mutex sendlock;
+    static constexpr int workercount = 17;
+
+    std::deque<std::string> sendQueue[workercount];
+    std::atomic<bool> sendQueueProcess[workercount] = { false };
+    std::mutex sendlock[workercount];
+
 public:
-	void SendQueuePush(const char* msg, int size)
-	{
-		{
-			std::lock_guard<std::mutex> guard(sendlock);
-			// TODO : emplace_back으로 수정
-			std::string str(msg, size);
-			sendQueue.push_back(str);
-		}
+    void SendQueuePush(const char* msg, int size, int targetQueue)
+    {
+        {
+            std::lock_guard<std::mutex> guard(sendlock[targetQueue]);
+            // TODO : emplace_back으로 수정
+            std::string str(msg, size);
+            sendQueue[targetQueue].push_back(str);
+        }
 
-		bool expected = false;
-		if (sendQueueProcess.compare_exchange_strong(expected, true))
-		{
-			DoSend();
-		}
-	}
+        bool expected = false;
+        if (sendQueueProcess[targetQueue].compare_exchange_strong(expected, true))
+        {
+            DoSend(targetQueue);
+        }
+    }
 
-	void DoSend()
-	{
-		std::string buffer;
-		{
-			std::lock_guard<std::mutex> guard(sendlock);
+    void DoSend(int targetQueue)
+    {
+        std::string buffer;
+        {
+            std::lock_guard<std::mutex> guard(sendlock[targetQueue]);
 
-			if (sendQueue.empty())
-			{
-				sendQueueProcess.store(false, std::memory_order_release);
-				return;
-			}
+            if (sendQueue[targetQueue].empty())
+            {
+                sendQueueProcess[targetQueue].store(false, std::memory_order_release);
+                return;
+            }
 
-			for (auto& s : sendQueue) buffer += s;
-			sendQueue.clear();
-		}
+            for (auto& s : sendQueue[targetQueue])
+                buffer += s;
 
-		// TODO : buffer move 복사 
-		auto bufferPtr = std::make_shared<std::string>(buffer);
-		auto self = shared_from_this();
+            sendQueue[targetQueue].clear();
+        }
 
-		boost::asio::async_write(*socket, boost::asio::buffer(*bufferPtr),
-			[self, bufferPtr](boost::system::error_code ec, size_t)
-			{
-				if (!ec)
-				{
-					// 다음 메시지 전송
-					self->DoSend();
-				}
-				else
-				{
-					std::cerr << "send err: " << ec.message() << "\n";
-					self->Close();
-				}			
-			});
-	}
+        // TODO : buffer move 복사
+        auto bufferPtr = std::make_shared<std::string>(buffer);
+        auto self = shared_from_this();
+
+        boost::asio::async_write(
+            *socket,
+            boost::asio::buffer(*bufferPtr),
+            [self, bufferPtr, targetQueue](boost::system::error_code ec, size_t)
+            {
+                if (!ec)
+                {
+                    // 다음 메시지 전송
+                    self->DoSend(targetQueue);
+                }
+                else
+                {
+                    std::cerr << "send err: " << ec.message() << "\n";
+                    self->Close();
+                }
+            }
+        );
+    }
 	//////////////////////////////////////
 
 private:

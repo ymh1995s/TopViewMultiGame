@@ -4,8 +4,9 @@ class Job
 public:
     using CallbackType = std::function<void()>;
 
-    Job(CallbackType callback)
-        : _callback(std::move(callback))
+    Job(CallbackType callback, int targetQueue)
+        : _callback(std::move(callback)),
+        _targetQueue(targetQueue)
     {
     }
 
@@ -13,7 +14,9 @@ public:
     {
         if (_callback) _callback();
     }
+public:
+    int _targetQueue = -1; // 담당할 큐의 번호
 
 private:
-    CallbackType _callback; 
+    CallbackType _callback;
 };

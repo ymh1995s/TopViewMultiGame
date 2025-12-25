@@ -33,7 +33,8 @@ int main(int argc, char* argv[])
     // 1127 메모 : 최적화 전 90명까지 수용
     // 1204 메모 : 브로드 캐스트 스레드 분산 후 110명까지 수용
     // 1213 메모 : Send 모아보내기 후 130명까지 수용
-    int clientCount = 190; 
+    // 1225 메모 : N개의 큐로 분산하여 관리. 성능 향상 없음 - cpu 부하 떄문으로 예상
+    int clientCount = 140; 
     if (argc >= 2)
     {
         try { clientCount = std::stoi(argv[1]); } catch(...) { clientCount = 10; }

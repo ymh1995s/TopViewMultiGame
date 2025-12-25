@@ -28,7 +28,7 @@ int main()
     const int workerCount = std::thread::hardware_concurrency();
     vector<thread> workers;
     workers.reserve(workerCount);
-    for (int i = 0; i < 2; ++i)
+    for (int i = 0; i < workerCount; ++i)
     {
         workers.emplace_back([&io_context]() {
             io_context.run();

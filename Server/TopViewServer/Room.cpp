@@ -21,14 +21,14 @@ void Room::Init(boost::asio::io_context& io)
 void Room::EnterObject(const shared_ptr<Object>& object)
 {
 	cout << "Room : {ID : " << object->_objectId <<", Type "<<object->_type << " Entered\n";
-	lock_guard<mutex> guard(lock);
+	lock_guard<mutex> guard(lock[0]); // TODO 지금은 임시로 0번에서만 입장 허용
 	_insertObjectTable[object->_type](object);
 }
 
 void Room::ExitObject(const shared_ptr<Object>& object)
 {
 	cout << "Room : {ID : " << object->_objectId << ", Type " << object->_type << " Exit\n";
-	lock_guard<mutex> guard(lock);
+	lock_guard<mutex> guard(lock[0]); // TODO 지금은 임시로 0번에서만 퇴장 허용
 	_eraseObjectTable[object->_type](object);
 }
 
@@ -38,7 +38,8 @@ void Room::Broadcast(const string& msg)
 	{
 		if (auto session = player->GetSession())
 		{
-			session->SendQueuePush(msg.c_str(), static_cast<int>(msg.size()));
+			int targetQueue = id % 17; // N개의 큐 중 하나 선택
+			session->SendQueuePush(msg.c_str(), static_cast<int>(msg.size()), targetQueue);
 			//session->Send(msg.c_str(), static_cast<int>(msg.size()));
 		}
 	}
@@ -50,33 +51,36 @@ void Room::PushMoveJob(Job job)
 
 void Room::PushETCJob(Job job)
 {
+	constexpr int QUEUE_COUNT = 17;
+	int targetQueue = job._targetQueue % QUEUE_COUNT;
+
 	{
-		lock_guard<std::mutex> guard(lock);
+		lock_guard<std::mutex> guard(lock[job._targetQueue]);
 		// TODO Move로 최적화
-		ETCQueue.push(job);
+		ETCQueue[targetQueue].push(job);
 		//ETCQueue.push(std::move(job));
 	}
 
 	bool expected = false;
 	// ETCflushing가 false라면, true로 바꾼 후에 if 내부 내용 실행
-	if (ETCflushing.compare_exchange_strong(expected, true))
+	if (ETCflushing[targetQueue].compare_exchange_strong(expected, true))
 	{
-		FlushETCQueue();
+		FlushETCQueue(targetQueue);
 	}
 }
 
-void Room::FlushETCQueue()
+void Room::FlushETCQueue(int targetQueue)
 {
 	//if (ETCQueue.size() > 1)
 	//	cout << "q size : " << ETCQueue.size() << '\n';
 
 	queue<Job> localQueue;
 	{
-		lock_guard<std::mutex> guard(lock);
+		lock_guard<std::mutex> guard(lock[targetQueue]);
 		// TODO Move로 최적화
-		while (ETCQueue.size()) {
-			localQueue.push(ETCQueue.front());
-			ETCQueue.pop();
+		while (ETCQueue[targetQueue].size()) {
+			localQueue.push(ETCQueue[targetQueue].front());
+			ETCQueue[targetQueue].pop();
 		}
 	}
 
@@ -94,15 +98,17 @@ void Room::FlushETCQueue()
 		// ...
 	// 이런식으로 총 17개의 워커스레드가 동작함, 순서보장은 X
 	auto q = std::make_shared<queue<Job>>(std::move(localQueue));
-	boost::asio::post(*_io, [q]() {
+	boost::asio::post(*_io, [q, this, targetQueue]() {
 		while (!q->empty()) {
 			q->front().Execute();
 			q->pop();
 		}
+		// flush 완료 표시
+		ETCflushing[targetQueue].store(false, std::memory_order_release);
 		});
 
-	// flush 완료 표시
-	ETCflushing.store(false, std::memory_order_release);
+	// !실제 비동기 작업이 완료될 때, 즉 위의 람다 안에서 store되어야 한다.
+	//ETCflushing[targetQueue].store(false, std::memory_order_release);
 }
 
 void Room::CreateObstacle()

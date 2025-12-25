@@ -10,11 +10,13 @@ Handler GPacketHandler[UINT16_MAX];
 
 bool Handle_C_CHAT(shared_ptr<Session> session, Protocol::C_Chat& pkt)
 {
-    if (auto room = session->GetPlayer()->GetRoom())
-    {
-        Job job([room, msg = pkt.message()]() {
-            room->Broadcast(msg);
-            });
+	if (auto room = session->GetPlayer()->GetRoom())
+	{
+		Job job([room, msg = pkt.message()]() {
+			room->Broadcast(msg);
+			},
+			session->GetSessionId() % 17
+		);
 
         room->PushETCJob(job);
     }

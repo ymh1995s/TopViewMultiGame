@@ -21,14 +21,22 @@ void Room::Init(boost::asio::io_context& io)
 void Room::EnterObject(const shared_ptr<Object>& object)
 {
 	cout << "Room : {ID : " << object->_objectId <<", Type "<<object->_type << " Entered\n";
-	lock_guard<mutex> guard(lock[0]); // TODO 지금은 임시로 0번에서만 입장 허용
+
+	// TODO : 랜덤 삭제. 임시로 입장은 아무 스레드에게나 랜덤 할당
+	int idx = rand() % 17;
+	lock_guard<mutex> guard(lock[idx]);
+
 	_insertObjectTable[object->_type](object);
 }
 
 void Room::ExitObject(const shared_ptr<Object>& object)
 {
 	cout << "Room : {ID : " << object->_objectId << ", Type " << object->_type << " Exit\n";
-	lock_guard<mutex> guard(lock[0]); // TODO 지금은 임시로 0번에서만 퇴장 허용
+
+	// TODO : 랜덤 삭제. 임시로 입장은 아무 스레드에게나 랜덤 할당
+	int idx = rand() % 17;
+	lock_guard<mutex> guard(lock[idx]);
+
 	_eraseObjectTable[object->_type](object);
 }
 

@@ -56,9 +56,7 @@ void Room::PushETCJob(Job job)
 
 	{
 		lock_guard<std::mutex> guard(lock[job._targetQueue]);
-		// TODO Move로 최적화
-		ETCQueue[targetQueue].push(job);
-		//ETCQueue.push(std::move(job));
+		ETCQueue[targetQueue].push(std::move(job));
 	}
 
 	bool expected = false;
@@ -77,9 +75,8 @@ void Room::FlushETCQueue(int targetQueue)
 	queue<Job> localQueue;
 	{
 		lock_guard<std::mutex> guard(lock[targetQueue]);
-		// TODO Move로 최적화
 		while (ETCQueue[targetQueue].size()) {
-			localQueue.push(ETCQueue[targetQueue].front());
+			localQueue.push(move(ETCQueue[targetQueue].front()));
 			ETCQueue[targetQueue].pop();
 		}
 	}

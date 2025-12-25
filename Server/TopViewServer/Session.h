@@ -32,7 +32,7 @@ public:
 
 	void EnterRoom();
 
-	// Send 모아 보내기 Test TODO : 주석 삭제///////////////////////
+	// Send 모아 보내기 Test TODO : 주석 삭제하고 cpp로 내리기///////////////////////
 private:
     static constexpr int workercount = 17;
 
@@ -45,9 +45,8 @@ public:
     {
         {
             std::lock_guard<std::mutex> guard(sendlock[targetQueue]);
-            // TODO : emplace_back으로 수정
-            std::string str(msg, size);
-            sendQueue[targetQueue].push_back(str);
+            // string을 vector 내부에서 직접 생성 (복사/이동 없음)
+            sendQueue[targetQueue].emplace_back(msg, size);
         }
 
         bool expected = false;
@@ -75,8 +74,7 @@ public:
             sendQueue[targetQueue].clear();
         }
 
-        // TODO : buffer move 복사
-        auto bufferPtr = std::make_shared<std::string>(buffer);
+        auto bufferPtr = make_shared<string>(move(buffer));
         auto self = shared_from_this();
 
         boost::asio::async_write(
@@ -103,7 +101,7 @@ private:
 	// TODO : TLS에서 했던것도 같고..?
 	const int sessionId; // 세션 아이디, 세션 매니저에서 부여
 	shared_ptr<Player> player;
-	char tempRecvBuffer[4096]; // TODO : 삭제
+	//char tempRecvBuffer[4096]; // TODO : 삭제
 
 	shared_ptr<tcp::socket> socket; // 네트워크 IO를 위해 여기서 필요
 	weak_ptr<SessionManager> sessionManager;

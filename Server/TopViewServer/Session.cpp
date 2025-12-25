@@ -86,7 +86,7 @@ void Session::EnterRoom()
 {
 	if(player != nullptr) return;
 
-	// TODO : 플레이어에서 Start ㅎ마수 따위로 묶기
+	// TODO : 플레이어에서 Start 함수 따위로 묶기
 	player = make_shared<Player>();
 	player->SetId();
 	player->_type = OBJECT_TYPE_PLAYER;

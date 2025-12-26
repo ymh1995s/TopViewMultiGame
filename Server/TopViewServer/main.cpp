@@ -25,7 +25,8 @@ int main()
 
     cout << "Here is Server.. \n";
 
-    const int workerCount = std::thread::hardware_concurrency();
+    //const int workerCount = std::thread::hardware_concurrency();
+    const int workerCount = tWorkerThread;
     vector<thread> workers;
     workers.reserve(workerCount);
     for (int i = 0; i < workerCount; ++i)
@@ -36,8 +37,8 @@ int main()
     }
 
     // 1은 메인 스레드
-    cout << workerCount + 1 << " workers started.\n";
-    io_context.run();
+    cout << workerCount << " workers started.\n";
+    //io_context.run();
 
     for (auto& t : workers)
         t.join();

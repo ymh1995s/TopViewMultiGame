@@ -1,3 +1,7 @@
+
+
+inline constexpr int tWorkerThread = 8;
+
 #include <iostream>
 #include <vector>
 #include <string>
@@ -12,6 +16,7 @@
 #include "Protocol.pb.h"
 #include "Session.h"
 #include "PacketHandler.h"
+
 
 #ifdef _DEBUG
 #pragma comment(lib, "Protobuf\\Debug\\libprotobufd.lib")

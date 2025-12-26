@@ -34,7 +34,7 @@ public:
 
 	// Send 모아 보내기 Test TODO : 주석 삭제하고 cpp로 내리기///////////////////////
 private:
-    static constexpr int workercount = 17;
+    static constexpr int workercount = tWorkerThread;
 
     std::deque<std::string> sendQueue[workercount];
     std::atomic<bool> sendQueueProcess[workercount] = { false };

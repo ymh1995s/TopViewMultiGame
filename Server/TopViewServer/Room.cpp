@@ -23,7 +23,7 @@ void Room::EnterObject(const shared_ptr<Object>& object)
 	cout << "Room : {ID : " << object->_objectId <<", Type "<<object->_type << " Entered\n";
 
 	// TODO : 랜덤 삭제. 임시로 입장은 아무 스레드에게나 랜덤 할당
-	int idx = rand() % 17;
+	int idx = rand() % tWorkerThread;
 	lock_guard<mutex> guard(lock[idx]);
 
 	_insertObjectTable[object->_type](object);
@@ -34,7 +34,7 @@ void Room::ExitObject(const shared_ptr<Object>& object)
 	cout << "Room : {ID : " << object->_objectId << ", Type " << object->_type << " Exit\n";
 
 	// TODO : 랜덤 삭제. 임시로 입장은 아무 스레드에게나 랜덤 할당
-	int idx = rand() % 17;
+	int idx = rand() % tWorkerThread;
 	lock_guard<mutex> guard(lock[idx]);
 
 	_eraseObjectTable[object->_type](object);
@@ -56,7 +56,7 @@ void Room::Broadcast(const string& msg)
 	{
 		if (auto session = player->GetSession())
 		{
-			int targetQueue = id % 17; // N개의 큐 중 하나 선택
+			int targetQueue = id % tWorkerThread; // N개의 큐 중 하나 선택
 			session->SendQueuePush(msg.c_str(), static_cast<int>(msg.size()), targetQueue);
 			//session->Send(msg.c_str(), static_cast<int>(msg.size()));
 		}
@@ -69,7 +69,7 @@ void Room::PushMoveJob(Job job)
 
 void Room::PushETCJob(Job job)
 {
-	constexpr int QUEUE_COUNT = 17;
+	constexpr int QUEUE_COUNT = tWorkerThread;
 	int targetQueue = job._targetQueue % QUEUE_COUNT;
 
 	{

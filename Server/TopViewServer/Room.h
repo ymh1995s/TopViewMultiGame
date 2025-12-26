@@ -45,7 +45,7 @@ private: // function 연습
 
 private:
 	queue<class Job> MoveQueues[4];
-	static constexpr int workerCount = 17;
+	static constexpr int workerCount = tWorkerThread;
 	queue<class Job> ETCQueue[workerCount];
 	atomic<bool> ETCflushing[workerCount] = { false };
 	//priority_queue<PQJob, std::vector<PQJob>, PQJobCompare> PQQueue;

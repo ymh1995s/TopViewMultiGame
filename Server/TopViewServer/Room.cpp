@@ -52,7 +52,7 @@ void Room::Broadcast(const string& msg)
 	}
 
 	// 2. 긴 작업은 락없이 스냅샷으로
-	for (const auto& [id, player] : _players) // C++ 17 structured binding
+	for (const auto& [id, player] : playersSnapshot) // C++ 17 structured binding
 	{
 		if (auto session = player->GetSession())
 		{

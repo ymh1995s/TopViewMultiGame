@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
     // 1225 메모 : N개의 큐로 분산하여 관리. 성능 향상 없음 - cpu 부하 떄문으로 예상
     // 1225 메모 : move와 emplace_back을 사용한 최적화. CPU 부하 감소, 여전히 130명 최대
 
-    int clientCount = 100;
+    int clientCount = 300;
     if (argc >= 2)
     {
         try { clientCount = std::stoi(argv[1]); }
@@ -128,6 +128,23 @@ int main(int argc, char* argv[])
             stop = true;
         });
 
+    // Reusable packet and buffers to avoid per-iteration allocations
+    Protocol::C_Chat chat;                  // 재사용할 프로토버프 패킷
+    PacketHeader header;                     // 재사용할 헤더
+    header.id = 1; // C_Chat id
+
+    // 메시지 문자열 재사용을 위해 외부에 선언
+    std::string message;
+    message.reserve(128); // 예상 최대 크기 넉넉히 예약
+
+    // 최대 바디 크기를 보수적으로 잡아 한번만 할당 후 재사용
+    // 헤더(4바이트) + 메시지(예상 최대 256바이트)
+    const size_t kMaxBodySize = 256;
+    std::vector<char> sendBuffer(sizeof(PacketHeader) + kMaxBodySize);
+
+    // 재사용할 에러 코드 객체
+    boost::system::error_code ec;
+
     while (!stop)
     {
         for (int i = 0; i < clientCount; ++i)
@@ -136,23 +153,27 @@ int main(int argc, char* argv[])
             if (!sock || !sock->is_open())
                 continue;
 
-            Protocol::C_Chat chat;
-            std::stringstream ss;
-            ss << "hello from client " << i << " seq " << seqs[i]++;
-            chat.set_message(ss.str());
+            // 메시지 구성 (ostringstream 제거, 문자열 append로 최적화)
+            message.clear();
+            message.append("hello from client ");
+            message.append(std::to_string(i));
+            message.append(" seq ");
+            message.append(std::to_string(seqs[i]++));
+            chat.set_message(message);
 
-            uint32_t bodySize = static_cast<uint32_t>(chat.ByteSizeLong());
-            uint32_t totalSize =
-                static_cast<uint32_t>(sizeof(PacketHeader)) + bodySize;
+            // 현재 바디 크기 계산
+            const uint32_t bodySize = static_cast<uint32_t>(chat.ByteSizeLong());
+            const uint32_t totalSize = static_cast<uint32_t>(sizeof(PacketHeader)) + bodySize;
 
-            std::vector<char> sendBuffer(totalSize);
+            // sendBuffer가 충분히 크지 않으면 확장 (필요 시에만)
+            if (sendBuffer.size() < totalSize)
+                sendBuffer.resize(totalSize);
 
-            PacketHeader header;
+            // 헤더 설정 후 버퍼에 복사
             header.size = static_cast<unsigned __int16>(totalSize);
-            header.id = 1; // C_Chat id
+            std::memcpy(sendBuffer.data(), &header, sizeof(header));
 
-            memcpy(sendBuffer.data(), &header, sizeof(header));
-
+            // 바디 직렬화 (고정된 버퍼 내)
             if (!chat.SerializeToArray(
                 sendBuffer.data() + sizeof(PacketHeader),
                 static_cast<int>(bodySize)))
@@ -161,16 +182,16 @@ int main(int argc, char* argv[])
                 continue;
             }
 
-            boost::system::error_code ec;
-            boost::asio::write(*sock, boost::asio::buffer(sendBuffer), ec);
+            // 동일 버퍼를 재사용하여 송신
+            ec.clear();
+            boost::asio::write(*sock, boost::asio::buffer(sendBuffer.data(), totalSize), ec);
 
             if (ec)
                 std::cerr << "send error client " << i << ": " << ec.message() << "\n";
         }
 
-        std::this_thread::sleep_for(
-            std::chrono::milliseconds(sendIntervalMs)
-        );
+        // 타이머 대기 (고정된 인터벌)
+        std::this_thread::sleep_for(std::chrono::milliseconds(sendIntervalMs));
     }
 
     // cleanup
@@ -178,8 +199,8 @@ int main(int argc, char* argv[])
     {
         if (s && s->is_open())
         {
-            boost::system::error_code ec;
-            s->close(ec);
+            boost::system::error_code closeEc;
+            s->close(closeEc);
         }
     }
 

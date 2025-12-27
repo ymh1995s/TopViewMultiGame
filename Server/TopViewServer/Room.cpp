@@ -6,6 +6,10 @@
 #include "Obstacle.h"
 #include "Job.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 void Room::Init(boost::asio::io_context& io)
 {
 	_io = &io;
@@ -14,8 +18,26 @@ void Room::Init(boost::asio::io_context& io)
 	CreateDust();
 	InitObjectTable();
 
-	//t = std::thread(&Room::COUTPACKETCOUNT, this);
-	//t.detach(); // 안전하게 백그라운드 실행
+	_running.store(true);
+
+	//t1 = std::thread(&Room::COUTPACKETCOUNT, this);
+	//t1.detach(); // 안전하게 백그라운드 실행
+
+	for (int c = 0; c < CONSUMERS_PER_QUEUE; ++c)
+	{
+		t2s.emplace_back(&Room::CONSUMER, this);
+
+#ifdef _WIN32
+		// Set a readable thread description for debugger (RoomConsumer-<n>)
+		std::string name = "RoomConsumer-" + std::to_string(c);
+		std::wstring wname(name.begin(), name.end());
+		// native_handle() on MSVC yields HANDLE
+		HRESULT hr = SetThreadDescription(t2s.back().native_handle(), wname.c_str());
+		(void)hr; // ignore result
+#endif
+
+		t2s.back().detach();
+	}
 }
 
 void Room::EnterObject(const shared_ptr<Object>& object)
@@ -69,58 +91,87 @@ void Room::PushMoveJob(Job job)
 void Room::PushETCJob(Job job)
 {
 	{
-		lock_guard<std::mutex> guard(qLock);
+		//lock_guard<std::mutex> guard(qLock);
+		unique_lock<mutex> lock(qLock);
 		ETCQueue.push(std::move(job));
 	}
 
-	bool expected = false;
-	// ETCflushing가 false라면, true로 바꾼 후에 if 내부 내용 실행
-	if (ETCflushing.compare_exchange_strong(expected, true))
+	cv.notify_one();
+
+	//bool expected = false;
+	//// ETCflushing가 false라면, true로 바꾼 후에 if 내부 내용 실행
+	//if (ETCflushing.compare_exchange_strong(expected, true))
+	//{
+	//	FlushETCQueue();
+	//}
+}
+
+void Room::CONSUMER()
+{
+	while (true)
 	{
-		FlushETCQueue();
+		queue<Job> localQueue;
+		{
+			unique_lock<mutex> lock(qLock);
+
+			// 람다 : 깨어나는 조건
+			cv.wait(lock, [this]() {return ETCQueue.empty() == false; });
+			// 1) Lock을 잡고 / unique_lock<mutex> lock(m);
+			// 2) 조건 확인 / [](){return q.empty() == false;
+			// 만족 => 빠져나와서 이어서 코드 진행
+			// 불만족 => Lock을 풀어주고 대기 상태로 변환
+			// => empty일 때 까지 while로 돌기 때문에 사실상 while(q.size())처럼 동작 
+
+			// notify_one 했으면 항상 조건식[](){return q.empty() == false;을 만족하는거 아닐까?
+			// Spurious Wakeup 가짜 기상 (데이터가 있는줄 알고 락 잡았더니 사실 없음)
+			// notify_one 할 때 Consumer()가 lock을 잡은 상태가 아니기 때문에 Spurious Wakeup 발생
+			// 그렇기 때문에 추가적인 조건[](){return q.empty() == false;으로 크로스체킹.
+
+			localQueue.swap(ETCQueue);
+		}
+
+		//if (localQueue.size() > 1)
+		//	cout << "{roomQ : size} : " << localQueue.size() << '\n';
+
+		auto q = std::make_shared<queue<Job>>(std::move(localQueue));
+		boost::asio::post(*_io, [q, this]() {
+			while (!q->empty()) {
+				q->front().Execute();
+				q->pop();
+			}
+			});
+		//// 변경: io_context로 post 하지 않고 이 스레드에서 직접 처리
+		//while (!localQueue.empty()) {
+		//	localQueue.front().Execute();
+		//	localQueue.pop();
+		//}
 	}
 }
 
 // PushETCJob()의 compare_exchange_strong을 통해 들어오므로 이 함수는 항상 1개의 스레드가 실행
 void Room::FlushETCQueue()
 {
-	if (ETCQueue.size() > 1)
-		cout << "q size : " << ETCQueue.size() << '\n';
+	//if (ETCQueue.size() > 1)
+	//	cout << "q size : " << ETCQueue.size() << '\n';
 
-	queue<Job> localQueue;
-	{
-		while (ETCQueue.size()) {
-			localQueue.push(move(ETCQueue.front()));
-			ETCQueue.pop();
-		}
-	}
+	//queue<Job> localQueue;
+	//{
+	//	while (ETCQueue.size()) {
+	//		localQueue.push(move(ETCQueue.front()));
+	//		ETCQueue.pop();
+	//	}
+	//}
 
-	auto q = std::make_shared<queue<Job>>(std::move(localQueue));
-	boost::asio::post(*_io, [q, this]() {
-		while (!q->empty()) {
-			q->front().Execute();
-			q->pop();
-		}
-
-		bool needMoreFlush = false;
-		{
-			lock_guard<std::mutex> guard(qLock);
-			needMoreFlush = !ETCQueue.empty();
-		}
-
-		if (needMoreFlush)
-		{
-			// 아직 남아있으면 다시 Flush
-			FlushETCQueue();
-		}
-		else
-		{
-			// 진짜 끝났을 때만 false
-			ETCflushing.store(false, std::memory_order_release);
-		}
-
-		});
+	//auto q = std::make_shared<queue<Job>>(std::move(localQueue));
+	//boost::asio::post(*_io, [q, this]() {
+	//	while (!q->empty()) {
+	//		q->front().Execute();
+	//		q->pop();
+	//	}
+	//	ETCflushing.store(false, std::memory_order_release);
+	//	});
 }
+
 
 void Room::CreateObstacle()
 {
@@ -154,6 +205,33 @@ void Room::InitObjectTable()
 
 void Room::CreateDust()
 {
+}
+
+void Room::Stop()
+{
+	bool expected = true;
+	if (!_running.compare_exchange_strong(expected, false))
+	{
+		// 이미 false였음 -> 두 번째 Stop 호출 등
+		return;
+	}
+
+	// 모든 대기 스레드 깨움
+	cv.notify_all();
+
+	// join 가능한 스레드 모두 합류
+	for (auto& th : t2s)
+	{
+		if (th.joinable())
+			th.join();
+	}
+	t2s.clear();
+
+	// 테스트용 t1도 사용중이면 정리
+	if (t1.joinable())
+		t1.join();
+
+	// 기타 리소스 정리 필요 시 여기에 추가
 }
 
 shared_ptr<Room> GRoom = make_shared<Room>(); // 헤더에서 선언한 것을 정의

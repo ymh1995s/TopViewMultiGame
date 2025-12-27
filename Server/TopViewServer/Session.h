@@ -56,23 +56,27 @@ public:
 
     void DoSend()
     {
-        std::string buffer= "TEST";
+        deque<string> localQueue; 
+
         {
             std::lock_guard<std::mutex> guard(sendlock);
-
-            if (sendQueue.empty())
-            {
-                sendQueueProcess.store(false, std::memory_order_release);
-                return;
-            }
-
-            for (auto& s : sendQueue)
-                buffer += s;
-
-            sendQueue.clear();
+            localQueue.swap(sendQueue);
         }
 
-        auto bufferPtr = make_shared<string>(move(buffer));
+        if (localQueue.empty())
+        {
+            sendQueueProcess.store(false, std::memory_order_release);
+            return;
+        }
+
+        //if (localQueue.size() > 1)
+        //    cout << "{sessionQ : size} : " << localQueue.size() << '\n';
+
+        auto bufferPtr = std::make_shared<std::string>();
+        bufferPtr->append("TEST");
+        //for (auto& s : localQueue)
+        //    bufferPtr->append(s);
+
         auto self = shared_from_this();
 
         boost::asio::async_write(
@@ -80,16 +84,14 @@ public:
             boost::asio::buffer(*bufferPtr),
             [self, bufferPtr](boost::system::error_code ec, size_t)
             {
-                if (!ec)
-                {
-                    // 다음 메시지 전송
-                    self->DoSend();
-                }
-                else
+                if (ec)
                 {
                     std::cerr << "send err: " << ec.message() << "\n";
                     self->Close();
+                    return;
                 }
+
+                self->DoSend();
             }
         );
     }

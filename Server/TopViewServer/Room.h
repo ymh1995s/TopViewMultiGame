@@ -25,6 +25,9 @@ public:
 	void PushPQJob(class PQJob job);
 	void FlushETCQueue();
 
+	void Stop();
+	~Room() { Stop(); }
+
 
 private: // 아래 애들은 나중에 생각하자
 	void CreateDust();
@@ -35,7 +38,8 @@ private:
 	unordered_map<uint32_t, shared_ptr<Player>> _players;
 	unordered_map<uint32_t, shared_ptr<Projectile>> _projectiles;
 	unordered_map<uint32_t, shared_ptr<Dust>> _dusts;
-	unordered_map<uint32_t, Obstacle> _obstacles;
+	// store obstacles by shared_ptr to avoid needing complete type here
+	unordered_map<uint32_t, shared_ptr<Obstacle>> _obstacles;
 
 private: // function 연습
 	using InsertFunc = function<void(const shared_ptr<Object>&)>;
@@ -53,10 +57,20 @@ private:
 	mutex bLock, qLock, eLock; // broadcast, jobqueue, enter/exit
 	boost::asio::io_context* _io;
 
+// condition_variable 연습
+private:
+	static constexpr int CONSUMERS_PER_QUEUE = 50;
+	std::condition_variable cv;
+	std::vector<std::thread> t2s;
+	void CONSUMER();
+
+	// 런닝 플래그: 스레드 종료 신호용
+	std::atomic<bool> _running{ false };
+
 // 테스트용
 public:
 	atomic<int> countPackets = 0; 
-	thread t;
+	thread t1;
 	void COUTPACKETCOUNT()
 	{
 		while (true)

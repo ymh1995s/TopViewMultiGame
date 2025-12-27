@@ -14,8 +14,7 @@ bool Handle_C_CHAT(shared_ptr<Session> session, Protocol::C_Chat& pkt)
 	{
 		Job job([room, msg = pkt.message()]() {
 			room->Broadcast(msg);
-			},
-			session->GetSessionId() % tWorkerThread
+			}
 		);
 
         room->PushETCJob(job);

@@ -34,44 +34,42 @@ public:
 
 	// Send 모아 보내기 Test TODO : 주석 삭제하고 cpp로 내리기///////////////////////
 private:
-    static constexpr int workercount = tWorkerThread;
-
-    std::deque<std::string> sendQueue[workercount];
-    std::atomic<bool> sendQueueProcess[workercount] = { false };
-    std::mutex sendlock[workercount];
+    std::deque<std::string> sendQueue;
+    std::atomic<bool> sendQueueProcess =  false;
+    std::mutex sendlock;
 
 public:
-    void SendQueuePush(const char* msg, int size, int targetQueue)
+    void SendQueuePush(const char* msg, int size)
     {
         {
-            std::lock_guard<std::mutex> guard(sendlock[targetQueue]);
+            std::lock_guard<std::mutex> guard(sendlock);
             // string을 vector 내부에서 직접 생성 (복사/이동 없음)
-            sendQueue[targetQueue].emplace_back(msg, size);
+            sendQueue.emplace_back(msg, size);
         }
 
         bool expected = false;
-        if (sendQueueProcess[targetQueue].compare_exchange_strong(expected, true))
+        if (sendQueueProcess.compare_exchange_strong(expected, true))
         {
-            DoSend(targetQueue);
+            DoSend();
         }
     }
 
-    void DoSend(int targetQueue)
+    void DoSend()
     {
-        std::string buffer;
+        std::string buffer= "TEST";
         {
-            std::lock_guard<std::mutex> guard(sendlock[targetQueue]);
+            std::lock_guard<std::mutex> guard(sendlock);
 
-            if (sendQueue[targetQueue].empty())
+            if (sendQueue.empty())
             {
-                sendQueueProcess[targetQueue].store(false, std::memory_order_release);
+                sendQueueProcess.store(false, std::memory_order_release);
                 return;
             }
 
-            for (auto& s : sendQueue[targetQueue])
+            for (auto& s : sendQueue)
                 buffer += s;
 
-            sendQueue[targetQueue].clear();
+            sendQueue.clear();
         }
 
         auto bufferPtr = make_shared<string>(move(buffer));
@@ -80,12 +78,12 @@ public:
         boost::asio::async_write(
             *socket,
             boost::asio::buffer(*bufferPtr),
-            [self, bufferPtr, targetQueue](boost::system::error_code ec, size_t)
+            [self, bufferPtr](boost::system::error_code ec, size_t)
             {
                 if (!ec)
                 {
                     // 다음 메시지 전송
-                    self->DoSend(targetQueue);
+                    self->DoSend();
                 }
                 else
                 {

@@ -23,7 +23,7 @@ public:
 	void PushMoveJob(class Job job);
 	void PushETCJob(class Job job);
 	void PushPQJob(class PQJob job);
-	void FlushETCQueue(int targetQueue);
+	void FlushETCQueue();
 
 
 private: // 아래 애들은 나중에 생각하자
@@ -45,13 +45,12 @@ private: // function 연습
 
 private:
 	queue<class Job> MoveQueues[4];
-	static constexpr int workerCount = tWorkerThread;
-	queue<class Job> ETCQueue[workerCount];
-	atomic<bool> ETCflushing[workerCount] = { false };
+	queue<class Job> ETCQueue;
+	atomic<bool> ETCflushing = false ;
 	//priority_queue<PQJob, std::vector<PQJob>, PQJobCompare> PQQueue;
 
 private:
-	mutex lock[workerCount];
+	mutex bLock, qLock, eLock; // broadcast, jobqueue, enter/exit
 	boost::asio::io_context* _io;
 
 // 테스트용

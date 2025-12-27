@@ -14,8 +14,8 @@ void Room::Init(boost::asio::io_context& io)
 	CreateDust();
 	InitObjectTable();
 
-	t = std::thread(&Room::COUTPACKETCOUNT, this);
-	t.detach(); // 안전하게 백그라운드 실행
+	//t = std::thread(&Room::COUTPACKETCOUNT, this);
+	//t.detach(); // 안전하게 백그라운드 실행
 }
 
 void Room::EnterObject(const shared_ptr<Object>& object)
@@ -23,8 +23,8 @@ void Room::EnterObject(const shared_ptr<Object>& object)
 	cout << "Room : {ID : " << object->_objectId <<", Type "<<object->_type << " Entered\n";
 
 	// TODO : 랜덤 삭제. 임시로 입장은 아무 스레드에게나 랜덤 할당
-	int idx = object->_objectId % tWorkerThread;
-	lock_guard<mutex> guard(lock[idx]);
+	//int idx = object->_objectId % tWorkerThread;
+	lock_guard<mutex> guard(eLock);
 
 	_insertObjectTable[object->_type](object);
 }
@@ -34,8 +34,8 @@ void Room::ExitObject(const shared_ptr<Object>& object)
 	cout << "Room : {ID : " << object->_objectId << ", Type " << object->_type << " Exit\n";
 
 	// TODO : 랜덤 삭제. 임시로 입장은 아무 스레드에게나 랜덤 할당
-	int idx = rand() % tWorkerThread;
-	lock_guard<mutex> guard(lock[idx]);
+	//int idx = rand() % tWorkerThread;
+	lock_guard<mutex> guard(eLock);
 
 	_eraseObjectTable[object->_type](object);
 }
@@ -45,7 +45,7 @@ void Room::Broadcast(const string& msg)
 	// 1. 락을 사용한 스냅샷으로 플레이어 목록 캡쳐
 	std::vector<std::pair<uint32_t, std::shared_ptr<Player>>> playersSnapshot;
 	{
-		std::lock_guard<std::mutex> guard(lock[0]); // Enter/Exit와 동일한 락 사용
+		std::lock_guard<std::mutex> guard(bLock); // Enter/Exit와 동일한 락 사용
 		playersSnapshot.reserve(_players.size());
 		for (const auto& kv : _players)
 			playersSnapshot.emplace_back(kv.first, kv.second);
@@ -56,8 +56,7 @@ void Room::Broadcast(const string& msg)
 	{
 		if (auto session = player->GetSession())
 		{
-			int targetQueue = id % tWorkerThread; // N개의 큐 중 하나 선택
-			session->SendQueuePush(msg.c_str(), static_cast<int>(msg.size()), targetQueue);
+			session->SendQueuePush(msg.c_str(), static_cast<int>(msg.size()));
 			//session->Send(msg.c_str(), static_cast<int>(msg.size()));
 		}
 	}
@@ -69,61 +68,58 @@ void Room::PushMoveJob(Job job)
 
 void Room::PushETCJob(Job job)
 {
-	constexpr int QUEUE_COUNT = tWorkerThread;
-	int targetQueue = job._targetQueue % QUEUE_COUNT;
-
 	{
-		lock_guard<std::mutex> guard(lock[targetQueue]);
-		ETCQueue[targetQueue].push(std::move(job));
+		lock_guard<std::mutex> guard(qLock);
+		ETCQueue.push(std::move(job));
 	}
 
 	bool expected = false;
 	// ETCflushing가 false라면, true로 바꾼 후에 if 내부 내용 실행
-	if (ETCflushing[targetQueue].compare_exchange_strong(expected, true))
+	if (ETCflushing.compare_exchange_strong(expected, true))
 	{
-		FlushETCQueue(targetQueue);
+		FlushETCQueue();
 	}
 }
 
-void Room::FlushETCQueue(int targetQueue)
+// PushETCJob()의 compare_exchange_strong을 통해 들어오므로 이 함수는 항상 1개의 스레드가 실행
+void Room::FlushETCQueue()
 {
-	//if (ETCQueue.size() > 1)
-	//	cout << "q size : " << ETCQueue.size() << '\n';
+	if (ETCQueue.size() > 1)
+		cout << "q size : " << ETCQueue.size() << '\n';
 
 	queue<Job> localQueue;
 	{
-		lock_guard<std::mutex> guard(lock[targetQueue]);
-		while (ETCQueue[targetQueue].size()) {
-			localQueue.push(move(ETCQueue[targetQueue].front()));
-			ETCQueue[targetQueue].pop();
+		while (ETCQueue.size()) {
+			localQueue.push(move(ETCQueue.front()));
+			ETCQueue.pop();
 		}
 	}
 
-	// 문제 : 1~200번 패킷이 있다고 치면 1~100번 패킷이 첫번째 실행.. 
-			// 첫번 째 워커스레드에서 아직 50번 패킷이 실행될 때 
-			// 두번 째 워커스레드에서 101~200번 패킷이 실행된다고 치면
-			// 101번 패킷이 실행된다고 치자 그럼 51~100은 101번보다 늦게 실행될 수 있음
-	// 해결책? : 순서를 보장하고 싶으면 strand를 사용한다.
-
-	// 시나리오 
-	// 처음에 1개 패킷만 오겠지->A워커스레드가 실행
-		// 그 사이에 200개가 왔다고 치자->B워커 스레드실행, A워커 스레드 작업 완료
-		// 그 사이에 200개가 왔다고 치자->B워커스레드는 아직 50번째 브로드캐스팅중, A워커 스레드한테 200개 람다 실행
-		// 그 사이에 200개가 왔다고 치자->B는 아직 100번쨰, A는 아직 50번째, C 워커 스레드한테 200개 람다 실행
-		// ...
-	// 이런식으로 총 17개의 워커스레드가 동작함, 순서보장은 X
 	auto q = std::make_shared<queue<Job>>(std::move(localQueue));
-	boost::asio::post(*_io, [q, this, targetQueue]() {
+	boost::asio::post(*_io, [q, this]() {
 		while (!q->empty()) {
 			q->front().Execute();
 			q->pop();
 		}
-		// flush 완료 표시
-		ETCflushing[targetQueue].store(false, std::memory_order_release);
-		});
 
-	// !실제 비동기 작업이 완료될 때, 즉 위의 람다 안에서 store되어야 한다.
-	//ETCflushing[targetQueue].store(false, std::memory_order_release);
+		bool needMoreFlush = false;
+		{
+			lock_guard<std::mutex> guard(qLock);
+			needMoreFlush = !ETCQueue.empty();
+		}
+
+		if (needMoreFlush)
+		{
+			// 아직 남아있으면 다시 Flush
+			FlushETCQueue();
+		}
+		else
+		{
+			// 진짜 끝났을 때만 false
+			ETCflushing.store(false, std::memory_order_release);
+		}
+
+		});
 }
 
 void Room::CreateObstacle()

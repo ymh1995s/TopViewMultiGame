@@ -26,8 +26,8 @@ struct PacketHeader
     unsigned __int16 id;
 };
 
-// Changes: simplify client to only send; no read; single-threaded synchronous loop similar to Program.cs
-
+// Changes: simplify client to only send; add lightweight recv for all clients;
+// single-threaded synchronous loop similar to Program.cs
 int main(int argc, char* argv[])
 {
     // 1127 메모 : 최적화 전 90명까지 수용
@@ -35,10 +35,12 @@ int main(int argc, char* argv[])
     // 1213 메모 : Send 모아보내기 후 130명까지 수용
     // 1225 메모 : N개의 큐로 분산하여 관리. 성능 향상 없음 - cpu 부하 떄문으로 예상
     // 1225 메모 : move와 emplace_back을 사용한 최적화. CPU 부하 감소, 여전히 130명 최대
-    int clientCount = 130; 
+
+    int clientCount = 100;
     if (argc >= 2)
     {
-        try { clientCount = std::stoi(argv[1]); } catch(...) { clientCount = 10; }
+        try { clientCount = std::stoi(argv[1]); }
+        catch (...) { clientCount = 10; }
     }
 
     const int sendIntervalMs = 250; // 1000 = 1초
@@ -47,10 +49,16 @@ int main(int argc, char* argv[])
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
     boost::asio::io_context io_context;
-    tcp::endpoint endpoint(boost::asio::ip::make_address(SERVER_IP), SERVER_PORT);
+    tcp::endpoint endpoint(
+        boost::asio::ip::make_address(SERVER_IP),
+        SERVER_PORT
+    );
 
     std::vector<std::shared_ptr<tcp::socket>> sockets;
     sockets.reserve(clientCount);
+
+    std::vector<std::shared_ptr<std::vector<char>>> recvBuffers;
+    recvBuffers.reserve(clientCount);
 
     // create and connect sockets synchronously
     for (int i = 0; i < clientCount; ++i)
@@ -58,67 +66,75 @@ int main(int argc, char* argv[])
         auto sock = std::make_shared<tcp::socket>(io_context);
         boost::system::error_code ec;
         sock->connect(endpoint, ec);
+
         if (ec)
-        {
             std::cerr << "Client " << i << " connect failed: " << ec.message() << "\n";
-        }
         else
-        {
             std::cout << "Client " << i << " connected\n";
-        }
+
         sockets.push_back(sock);
+
+        // prepare per-client recv buffer
+        auto buf = std::make_shared<std::vector<char>>(1024);
+        recvBuffers.push_back(buf);
     }
 
-    std::this_thread::sleep_for(std::chrono::seconds(1)); // 입장 완료 후 부하 테스트 시작 
+    std::this_thread::sleep_for(std::chrono::seconds(1)); // 입장 완료 후 부하 테스트 시작
 
-    // test : 하나의 세션만 recv 확인용
-    auto sock = sockets[0];
-    auto recvBuffer = std::make_shared<std::vector<char>>(1024);
+    // start recv for all clients with minimal handler
+    for (int i = 0; i < clientCount; ++i)
+    {
+        auto sock = sockets[i];
+        auto recvBuffer = recvBuffers[i];
 
-    std::function<void()> startRecv;
-    startRecv = [sock, recvBuffer, &startRecv]()
-        {
-            sock->async_read_some(boost::asio::buffer(*recvBuffer),
-                [sock, recvBuffer, &startRecv](const boost::system::error_code& ec, std::size_t bytes_transferred)
-                {
-                    if (!ec)
+        auto startRecv = std::make_shared<std::function<void()>>();
+        *startRecv = [sock, recvBuffer, startRecv]()
+            {
+                sock->async_read_some(
+                    boost::asio::buffer(*recvBuffer),
+                    [sock, recvBuffer, startRecv](
+                        const boost::system::error_code& ec,
+                        std::size_t /*bytes_transferred*/)
                     {
-                        std::cout << "Received " << bytes_transferred << " bytes from server\n";
-                        startRecv(); // 다음 recv 예약
+                        if (!ec)
+                        {
+                            (*startRecv)(); // 다음 recv 예약
+                        }
                     }
-                    else
-                    {
-                        std::cerr << "Receive error: " << ec.message() << "\n";
-                    }
-                });
-        };
+                );
+            };
 
-    //startRecv(); // 최초 호출
+        (*startRecv)(); // 최초 호출
+    }
 
     // 이벤트 루프 실행
-    std::thread ioThread([&io_context]() { io_context.run(); });
+    std::thread ioThread([&io_context]()
+        {
+            io_context.run();
+        });
 
-    ///////////////////////// test : 하나의 세션만 recv 확인용
+    std::cout
+        << "Started " << clientCount
+        << " dummy clients (light recv), sending C_CHAT at 100Hz. Press Enter to stop."
+        << std::endl;
 
-    std::cout << "Started " << clientCount << " dummy clients (no read), sending C_CHAT at 100Hz. Press Enter to stop." << std::endl;
-
-    // simple loop: for each tick, send a C_Chat from each client
     std::vector<uint64_t> seqs(clientCount, 0);
 
-    // run until Enter is pressed on stdin; but need non-blocking check. We'll spawn a thread to wait for Enter.
-    std::atomic<bool> stop{false};
-    std::thread waiter([&stop]() {
-        std::string s;
-        std::getline(std::cin, s);
-        stop = true;
-    });
+    std::atomic<bool> stop{ false };
+    std::thread waiter([&stop]()
+        {
+            std::string s;
+            std::getline(std::cin, s);
+            stop = true;
+        });
 
     while (!stop)
     {
         for (int i = 0; i < clientCount; ++i)
         {
             auto& sock = sockets[i];
-            if (!sock || !sock->is_open()) continue;
+            if (!sock || !sock->is_open())
+                continue;
 
             Protocol::C_Chat chat;
             std::stringstream ss;
@@ -126,15 +142,20 @@ int main(int argc, char* argv[])
             chat.set_message(ss.str());
 
             uint32_t bodySize = static_cast<uint32_t>(chat.ByteSizeLong());
-            const uint32_t totalSize = static_cast<uint32_t>(sizeof(PacketHeader)) + bodySize;
+            uint32_t totalSize =
+                static_cast<uint32_t>(sizeof(PacketHeader)) + bodySize;
 
             std::vector<char> sendBuffer(totalSize);
+
             PacketHeader header;
             header.size = static_cast<unsigned __int16>(totalSize);
             header.id = 1; // C_Chat id
+
             memcpy(sendBuffer.data(), &header, sizeof(header));
 
-            if (!chat.SerializeToArray(sendBuffer.data() + sizeof(PacketHeader), static_cast<int>(bodySize)))
+            if (!chat.SerializeToArray(
+                sendBuffer.data() + sizeof(PacketHeader),
+                static_cast<int>(bodySize)))
             {
                 std::cerr << "SerializeToArray failed for client " << i << "\n";
                 continue;
@@ -142,13 +163,14 @@ int main(int argc, char* argv[])
 
             boost::system::error_code ec;
             boost::asio::write(*sock, boost::asio::buffer(sendBuffer), ec);
+
             if (ec)
-            {
                 std::cerr << "send error client " << i << ": " << ec.message() << "\n";
-            }
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(sendIntervalMs));
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(sendIntervalMs)
+        );
     }
 
     // cleanup
@@ -162,5 +184,7 @@ int main(int argc, char* argv[])
     }
 
     if (waiter.joinable()) waiter.join();
+    if (ioThread.joinable()) ioThread.join();
+
     return 0;
 }

@@ -1,6 +1,6 @@
 
 
-inline constexpr int tWorkerThread = 8;
+inline constexpr int tWorkerThread = 17; // 기준은 17
 
 #include <iostream>
 #include <vector>

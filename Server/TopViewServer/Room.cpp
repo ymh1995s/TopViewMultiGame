@@ -23,7 +23,7 @@ void Room::EnterObject(const shared_ptr<Object>& object)
 	cout << "Room : {ID : " << object->_objectId <<", Type "<<object->_type << " Entered\n";
 
 	// TODO : 랜덤 삭제. 임시로 입장은 아무 스레드에게나 랜덤 할당
-	int idx = rand() % tWorkerThread;
+	int idx = object->_objectId % tWorkerThread;
 	lock_guard<mutex> guard(lock[idx]);
 
 	_insertObjectTable[object->_type](object);
@@ -73,7 +73,7 @@ void Room::PushETCJob(Job job)
 	int targetQueue = job._targetQueue % QUEUE_COUNT;
 
 	{
-		lock_guard<std::mutex> guard(lock[job._targetQueue]);
+		lock_guard<std::mutex> guard(lock[targetQueue]);
 		ETCQueue[targetQueue].push(std::move(job));
 	}
 

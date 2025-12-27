@@ -69,6 +69,8 @@ int main(int argc, char* argv[])
         sockets.push_back(sock);
     }
 
+    std::this_thread::sleep_for(std::chrono::seconds(1)); // 입장 완료 후 부하 테스트 시작 
+
     // test : 하나의 세션만 recv 확인용
     auto sock = sockets[0];
     auto recvBuffer = std::make_shared<std::vector<char>>(1024);

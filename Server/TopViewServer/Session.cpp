@@ -117,45 +117,48 @@ void Session::Send(const char* msg, int size)
 
 void Session::Send(const vector<shared_ptr<vector<uint8_t>>>& packetList)
 {
-	if (packetList.empty())
+	// TODO : 패킷의 헤더 크기 계산이 제대로 됐는지 검증 필요.
+	shared_ptr<vector<shared_ptr<vector<uint8_t>>>> lpacketList;
+	{
+		lock_guard<mutex> guard(sendlock);
+		lpacketList = make_shared<vector<shared_ptr<vector<uint8_t>>>>(packetList);
+	}
+
+	if (lpacketList->size()==0)
 		return;
 
-	_sendBuffers.clear();
-	_asioBuffers.clear();
+	size_t totalSize = 0;
+	for (auto& payload : *lpacketList)
+		totalSize += payload->size() + 4;
 
-	for (auto& payload : packetList)
+	auto sendBuffer = make_shared<vector<uint8_t>>(totalSize);
+	uint8_t* writePos = sendBuffer->data();
+
+	for (auto& payload : *lpacketList)
 	{
+		// TODO : SCHAT 하드코딩 삭제하고 올바른 패킷명으로 교체 
 		const uint16_t payloadSize = static_cast<uint16_t>(payload->size());
 		const uint16_t packetSize = payloadSize + 4;
 		const uint16_t packetId = S_CHAT;
 
-		auto sendBuffer = make_shared<vector<uint8_t>>(packetSize);
-
-		memcpy(sendBuffer->data(), &packetSize, 2);
-		memcpy(sendBuffer->data() + 2, &packetId, 2);
-		memcpy(sendBuffer->data() + 4, payload->data(), payloadSize);
-
-		_sendBuffers.push_back(sendBuffer);
-		_asioBuffers.push_back(
-			boost::asio::buffer(sendBuffer->data(), sendBuffer->size())
-		);
+		memcpy(writePos, &packetSize, 2); writePos += 2;
+		memcpy(writePos, &packetId, 2); writePos += 2;
+		memcpy(writePos, payload->data(), payloadSize); 
+		writePos += payloadSize;
 	}
 
 	auto self = shared_from_this();
 
 	boost::asio::async_write(
 		*socket,
-		_asioBuffers,
-		[self](const boost::system::error_code& ec, size_t /*bytes*/)
+		boost::asio::buffer(sendBuffer->data(), sendBuffer->size()),
+		[self, sendBuffer, lpacketList]
+		(const boost::system::error_code& ec, size_t /*bytes*/)
 		{
 			if (ec)
 			{
 				std::cerr << "send err: " << ec.message() << "\n";
 			}
-
-			// 전송 완료 후 정리
-			self->_sendBuffers.clear();
-			self->_asioBuffers.clear();
 		});
 }
 

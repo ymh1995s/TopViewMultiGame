@@ -8,6 +8,9 @@ class Dust;
 class Obstacle;
 class Object;
 
+#include <google/protobuf/message.h>
+using google::protobuf::Message;
+
 using namespace std;
 
 class Room
@@ -18,16 +21,14 @@ public:
 	void EnterObject(const shared_ptr<Object>& Object);
 	void ExitObject(const shared_ptr<Object>& Object);
 	void Broadcast(const string& msg);
+	void Broadcast(const Message& packet);
+	void BroadcastSerialized(shared_ptr<vector<uint8_t>> buffer);
 
 public:
 	void PushMoveJob(class Job job);
 	void PushETCJob(class Job job);
 	void PushPQJob(class PQJob job);
 	void FlushETCQueue();
-
-	void Stop();
-	~Room() { Stop(); }
-
 
 private: // 아래 애들은 나중에 생각하자
 	void CreateDust();
@@ -59,13 +60,16 @@ private:
 
 // condition_variable 연습
 private:
-	static constexpr int CONSUMERS_PER_QUEUE = 50;
+	static constexpr int CONSUMERS_PER_QUEUE = 1;
 	std::condition_variable cv;
 	std::vector<std::thread> t2s;
 	void CONSUMER();
 
-	// 런닝 플래그: 스레드 종료 신호용
-	std::atomic<bool> _running{ false };
+// 재설계중..
+private:
+	void Flush();
+	void tQueue();
+	vector<shared_ptr<vector<uint8_t>>> _pendingMSG;
 
 // 테스트용
 public:

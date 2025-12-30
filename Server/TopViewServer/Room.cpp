@@ -18,8 +18,6 @@ void Room::Init(boost::asio::io_context& io)
 	CreateDust();
 	InitObjectTable();
 
-	_running.store(true);
-
 	//t1 = std::thread(&Room::COUTPACKETCOUNT, this);
 	//t1.detach(); // 안전하게 백그라운드 실행
 
@@ -62,9 +60,12 @@ void Room::ExitObject(const shared_ptr<Object>& object)
 	_eraseObjectTable[object->_type](object);
 }
 
-void Room::Broadcast(const string& msg)
+//void Room::Broadcast(const string& msg)
+void Room::Broadcast(const Message& packet)
 {
+	/*
 	// 1. 락을 사용한 스냅샷으로 플레이어 목록 캡쳐
+	// TODO 락을 걸필요까진 없고 리드온리 하는 법 있었던 것 같은데
 	std::vector<std::pair<uint32_t, std::shared_ptr<Player>>> playersSnapshot;
 	{
 		std::lock_guard<std::mutex> guard(bLock); // Enter/Exit와 동일한 락 사용
@@ -82,6 +83,25 @@ void Room::Broadcast(const string& msg)
 			//session->Send(msg.c_str(), static_cast<int>(msg.size()));
 		}
 	}
+	*/
+}
+
+void Room::BroadcastSerialized(shared_ptr<vector<uint8_t>> buffer)
+{
+	lock_guard<mutex> guard(eLock);
+	_pendingMSG.push_back(std::move(buffer));
+}
+
+void Room::Flush()
+{
+	// TODO : 게임상 처리 로직
+	while (true)
+	{
+
+
+
+	}
+
 }
 
 void Room::PushMoveJob(Job job)
@@ -130,21 +150,41 @@ void Room::CONSUMER()
 			localQueue.swap(ETCQueue);
 		}
 
-		//if (localQueue.size() > 1)
-		//	cout << "{roomQ : size} : " << localQueue.size() << '\n';
+		int temp = localQueue.size();
 
-		auto q = std::make_shared<queue<Job>>(std::move(localQueue));
-		boost::asio::post(*_io, [q, this]() {
-			while (!q->empty()) {
-				q->front().Execute();
-				q->pop();
+		while (!localQueue.empty())
+		{
+			localQueue.front().Execute();
+			localQueue.pop();
+		}
+
+		vector<shared_ptr<vector<uint8_t>>> lpendingMSG;
+		{
+			lock_guard<mutex> guard(eLock);
+			lpendingMSG.swap(_pendingMSG);
+		}
+
+		if (temp > 1)
+			cout << "{localQueue : _pendingMSG} : " << temp << " " << lpendingMSG.size() << '\n';
+
+		// 1. 락을 사용한 스냅샷으로 플레이어 목록 캡쳐
+		// TODO 락을 걸필요까진 없고 리드온리 하는 법 있었던 것 같은데
+		vector<pair<uint32_t, shared_ptr<Player>>> playersSnapshot;
+		{
+			std::lock_guard<std::mutex> guard(bLock); // Enter/Exit와 동일한 락 사용
+			playersSnapshot.reserve(_players.size());
+			for (const auto& kv : _players)
+				playersSnapshot.emplace_back(kv.first, kv.second);
+		}
+
+		// 2. 긴 작업은 락없이 스냅샷으로
+		for (const auto& [id, player] : playersSnapshot) // C++ 17 structured binding
+		{
+			if (auto session = player->GetSession())
+			{
+				session->Send(lpendingMSG);
 			}
-			});
-		//// 변경: io_context로 post 하지 않고 이 스레드에서 직접 처리
-		//while (!localQueue.empty()) {
-		//	localQueue.front().Execute();
-		//	localQueue.pop();
-		//}
+		}
 	}
 }
 
@@ -205,33 +245,6 @@ void Room::InitObjectTable()
 
 void Room::CreateDust()
 {
-}
-
-void Room::Stop()
-{
-	bool expected = true;
-	if (!_running.compare_exchange_strong(expected, false))
-	{
-		// 이미 false였음 -> 두 번째 Stop 호출 등
-		return;
-	}
-
-	// 모든 대기 스레드 깨움
-	cv.notify_all();
-
-	// join 가능한 스레드 모두 합류
-	for (auto& th : t2s)
-	{
-		if (th.joinable())
-			th.join();
-	}
-	t2s.clear();
-
-	// 테스트용 t1도 사용중이면 정리
-	if (t1.joinable())
-		t1.join();
-
-	// 기타 리소스 정리 필요 시 여기에 추가
 }
 
 shared_ptr<Room> GRoom = make_shared<Room>(); // 헤더에서 선언한 것을 정의

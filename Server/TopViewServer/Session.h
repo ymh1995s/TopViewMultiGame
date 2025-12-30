@@ -26,6 +26,7 @@ public:
 
 	void Start(shared_ptr<tcp::socket> socket);
 	void Send(const char* msg, int size);
+    void Send(const vector<shared_ptr<vector<uint8_t>>>& packetList);
 	void Close();
 	void RegisterRecv();
 	void ProcessRecv(size_t length );
@@ -38,7 +39,19 @@ private:
     std::atomic<bool> sendQueueProcess =  false;
     std::mutex sendlock;
 
+    // 여기도 Test :: TODO 리펙터링
+    vector<shared_ptr<vector<uint8_t>>> _sendBuffers;   // 실제 데이터 소유
+    vector<boost::asio::const_buffer>   _asioBuffers;   // asio용 뷰
+
+    size_t _sendIndex = 0;   // 현재 buffer index
+    size_t _sendOffset = 0;  // buffer 내부 offset
+    void DoSend();
+
+
+
+
 public:
+    /*
     void SendQueuePush(const char* msg, int size)
     {
         {
@@ -94,7 +107,7 @@ public:
                 self->DoSend();
             }
         );
-    }
+    }*/
 	//////////////////////////////////////
 
 private:

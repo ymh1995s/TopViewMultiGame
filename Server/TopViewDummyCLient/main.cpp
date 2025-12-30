@@ -108,10 +108,20 @@ int main(int argc, char* argv[])
     }
 
     // 이벤트 루프 실행
-    std::thread ioThread([&io_context]()
-        {
+    // 기존
+    // std::thread ioThread([&io_context]()
+    // {
+    //     io_context.run();
+    // });
+
+    // -> 멀티스레드 io_context 실행
+    std::vector<std::thread> ioThreads;
+    for (int t = 0; t < 16; ++t)
+    {
+        ioThreads.emplace_back([&io_context]() {
             io_context.run();
-        });
+            });
+    }
 
     std::cout
         << "Started " << clientCount
@@ -205,7 +215,12 @@ int main(int argc, char* argv[])
     }
 
     if (waiter.joinable()) waiter.join();
-    if (ioThread.joinable()) ioThread.join();
+    //if (ioThread.joinable()) ioThread.join();
+    for (auto& th : ioThreads)
+    {
+        if (th.joinable()) th.join();
+    }
+
 
     return 0;
 }

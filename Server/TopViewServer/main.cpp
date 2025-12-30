@@ -3,6 +3,7 @@
 #include "Room.h"
 
 // main.cpp
+// TODO : 클라이언트 메모리 정리가 안되는지 확인 필요. 소멸자는 호출되고 있는데?
 
 using namespace std;
 

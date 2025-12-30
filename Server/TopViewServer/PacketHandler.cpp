@@ -17,7 +17,7 @@ bool Handle_C_CHAT(shared_ptr<Session> session, Protocol::C_Chat& pkt)
 	{
         auto sendBuffer = std::make_shared<std::vector<uint8_t>>();
         {
-            // 직렬화 : 여기서 미리 W 스레드가 부담 
+            // 직렬화 : 여기서 미리 워커 스레드가 부담 
             // TODO : 네트워크 스레드 부하가 크면 다른 곳으로 이동
             Protocol::S_Chat chat;
             chat.set_message(pkt.message());

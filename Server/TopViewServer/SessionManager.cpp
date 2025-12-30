@@ -35,11 +35,10 @@ shared_ptr<Session> SessionManager::FindSession(int id)
 
 void SessionManager::Broadcast(const char* msg, int size)
 {
-	// TODO : 잡큐 방식을 통해 1개의 스레드만 접근 가능하도록 => 다른 함수도 마찬가지 
-	// lock_guard<mutex> guard(lock);
+	// TODO : 필요 시 재구현
 	for (auto& pair : sessions)
 	{
 		auto& session = pair.second;
-		session->Send(msg, size);
+		//session->Send(msg, size);
 	}
 }

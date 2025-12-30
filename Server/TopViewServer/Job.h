@@ -13,7 +13,6 @@ public:
     {
         if (_callback) _callback();
     }
-public:
 
 private:
     CallbackType _callback;

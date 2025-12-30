@@ -10,6 +10,9 @@
 #include <windows.h>
 #endif
 
+#include <google/protobuf/message.h>
+using google::protobuf::Message;
+
 void Room::Init(boost::asio::io_context& io)
 {
 	_io = &io;
@@ -23,85 +26,39 @@ void Room::Init(boost::asio::io_context& io)
 
 	for (int c = 0; c < CONSUMERS_PER_QUEUE; ++c)
 	{
-		t2s.emplace_back(&Room::CONSUMER, this);
+		lThreads.emplace_back(&Room::Flush, this);
 
 #ifdef _WIN32
 		// Set a readable thread description for debugger (RoomConsumer-<n>)
 		std::string name = "RoomConsumer-" + std::to_string(c);
 		std::wstring wname(name.begin(), name.end());
 		// native_handle() on MSVC yields HANDLE
-		HRESULT hr = SetThreadDescription(t2s.back().native_handle(), wname.c_str());
+		HRESULT hr = SetThreadDescription(lThreads.back().native_handle(), wname.c_str());
 		(void)hr; // ignore result
 #endif
 
-		t2s.back().detach();
+		lThreads.back().detach();
 	}
 }
 
 void Room::EnterObject(const shared_ptr<Object>& object)
 {
 	cout << "Room : {ID : " << object->_objectId <<", Type "<<object->_type << " Entered\n";
-
-	// TODO : 랜덤 삭제. 임시로 입장은 아무 스레드에게나 랜덤 할당
-	//int idx = object->_objectId % tWorkerThread;
-	lock_guard<mutex> guard(eLock);
-
+	lock_guard<mutex> guard(_lock);
 	_insertObjectTable[object->_type](object);
 }
 
 void Room::ExitObject(const shared_ptr<Object>& object)
 {
 	cout << "Room : {ID : " << object->_objectId << ", Type " << object->_type << " Exit\n";
-
-	// TODO : 랜덤 삭제. 임시로 입장은 아무 스레드에게나 랜덤 할당
-	//int idx = rand() % tWorkerThread;
-	lock_guard<mutex> guard(eLock);
-
+	lock_guard<mutex> guard(_lock);
 	_eraseObjectTable[object->_type](object);
-}
-
-//void Room::Broadcast(const string& msg)
-void Room::Broadcast(const Message& packet)
-{
-	/*
-	// 1. 락을 사용한 스냅샷으로 플레이어 목록 캡쳐
-	// TODO 락을 걸필요까진 없고 리드온리 하는 법 있었던 것 같은데
-	std::vector<std::pair<uint32_t, std::shared_ptr<Player>>> playersSnapshot;
-	{
-		std::lock_guard<std::mutex> guard(bLock); // Enter/Exit와 동일한 락 사용
-		playersSnapshot.reserve(_players.size());
-		for (const auto& kv : _players)
-			playersSnapshot.emplace_back(kv.first, kv.second);
-	}
-
-	// 2. 긴 작업은 락없이 스냅샷으로
-	for (const auto& [id, player] : playersSnapshot) // C++ 17 structured binding
-	{
-		if (auto session = player->GetSession())
-		{
-			session->SendQueuePush(msg.c_str(), static_cast<int>(msg.size()));
-			//session->Send(msg.c_str(), static_cast<int>(msg.size()));
-		}
-	}
-	*/
 }
 
 void Room::BroadcastSerialized(shared_ptr<vector<uint8_t>> buffer)
 {
-	lock_guard<mutex> guard(eLock);
+	lock_guard<mutex> guard(_lock);
 	_pendingMSG.push_back(std::move(buffer));
-}
-
-void Room::Flush()
-{
-	// TODO : 게임상 처리 로직
-	while (true)
-	{
-
-
-
-	}
-
 }
 
 void Room::PushMoveJob(Job job)
@@ -111,28 +68,21 @@ void Room::PushMoveJob(Job job)
 void Room::PushETCJob(Job job)
 {
 	{
-		//lock_guard<std::mutex> guard(qLock);
-		unique_lock<mutex> lock(qLock);
+		// lock_guard<std::mutex> guard(qLock); // 경우에 따라 락가드도 사용할 수 있는 모양
+		unique_lock<mutex> lock(_lock);
 		ETCQueue.push(std::move(job));
 	}
 
 	cv.notify_one();
-
-	//bool expected = false;
-	//// ETCflushing가 false라면, true로 바꾼 후에 if 내부 내용 실행
-	//if (ETCflushing.compare_exchange_strong(expected, true))
-	//{
-	//	FlushETCQueue();
-	//}
 }
 
-void Room::CONSUMER()
+void Room::Flush()
 {
 	while (true)
 	{
 		queue<Job> localQueue;
 		{
-			unique_lock<mutex> lock(qLock);
+			unique_lock<mutex> lock(_lock);
 
 			// 람다 : 깨어나는 조건
 			cv.wait(lock, [this]() {return ETCQueue.empty() == false; });
@@ -150,7 +100,7 @@ void Room::CONSUMER()
 			localQueue.swap(ETCQueue);
 		}
 
-		int temp = localQueue.size();
+		int qSize = localQueue.size();
 
 		while (!localQueue.empty())
 		{
@@ -158,20 +108,14 @@ void Room::CONSUMER()
 			localQueue.pop();
 		}
 
-		vector<shared_ptr<vector<uint8_t>>> lpendingMSG;
-		{
-			lock_guard<mutex> guard(eLock);
-			lpendingMSG.swap(_pendingMSG);
-		}
-
-		if (temp > 1)
-			cout << "{localQueue : _pendingMSG} : " << temp << " " << lpendingMSG.size() << '\n';
-
-		// 1. 락을 사용한 스냅샷으로 플레이어 목록 캡쳐
+		// 1. 락을 사용한 스냅샷으로 플레이어 목록과 메시지 큐 복사
 		// TODO 락을 걸필요까진 없고 리드온리 하는 법 있었던 것 같은데
+		vector<shared_ptr<vector<uint8_t>>> lpendingMSG;
 		vector<pair<uint32_t, shared_ptr<Player>>> playersSnapshot;
 		{
-			std::lock_guard<std::mutex> guard(bLock); // Enter/Exit와 동일한 락 사용
+			lock_guard<mutex> guard(_lock);
+			lpendingMSG.swap(_pendingMSG);
+
 			playersSnapshot.reserve(_players.size());
 			for (const auto& kv : _players)
 				playersSnapshot.emplace_back(kv.first, kv.second);
@@ -185,37 +129,25 @@ void Room::CONSUMER()
 				session->Send(lpendingMSG);
 			}
 		}
+
+		if (qSize > 1) cout << "{localQueue : _pendingMSG} : " << qSize << " " << lpendingMSG.size() << '\n';
 	}
 }
-
-// PushETCJob()의 compare_exchange_strong을 통해 들어오므로 이 함수는 항상 1개의 스레드가 실행
-void Room::FlushETCQueue()
-{
-	//if (ETCQueue.size() > 1)
-	//	cout << "q size : " << ETCQueue.size() << '\n';
-
-	//queue<Job> localQueue;
-	//{
-	//	while (ETCQueue.size()) {
-	//		localQueue.push(move(ETCQueue.front()));
-	//		ETCQueue.pop();
-	//	}
-	//}
-
-	//auto q = std::make_shared<queue<Job>>(std::move(localQueue));
-	//boost::asio::post(*_io, [q, this]() {
-	//	while (!q->empty()) {
-	//		q->front().Execute();
-	//		q->pop();
-	//	}
-	//	ETCflushing.store(false, std::memory_order_release);
-	//	});
-}
-
 
 void Room::CreateObstacle()
 {
 
+}
+
+void Room::TCOUNTPACKET()
+{
+	while (true)
+	{
+		cout << "{Player:countPackets} : " << _players.size() << " " << countPackets.load() << '\n';
+		countPackets.store(0);
+
+		this_thread::sleep_for(std::chrono::seconds(1));
+	}
 }
 
 void Room::InitObjectTable()

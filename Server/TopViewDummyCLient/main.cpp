@@ -35,8 +35,9 @@ int main(int argc, char* argv[])
     // 1213 메모 : Send 모아보내기 후 130명까지 수용
     // 1225 메모 : N개의 큐로 분산하여 관리. 성능 향상 없음 - cpu 부하 떄문으로 예상
     // 1225 메모 : move와 emplace_back을 사용한 최적화. CPU 부하 감소, 여전히 130명 최대
-
-    int clientCount = 300;
+    // 1230 메모 : 설계 및 플로우 최적화 완료. 1000명 이상 수용 가능. CPU, Mem 사용량 정상. 로컬 컴퓨터의 한계로 1000명 이상은 테스트 어려움
+        // 장시간 부하 테스트는 미실시
+    int clientCount = 1000;
     if (argc >= 2)
     {
         try { clientCount = std::stoi(argv[1]); }
@@ -116,7 +117,7 @@ int main(int argc, char* argv[])
 
     // -> 멀티스레드 io_context 실행
     std::vector<std::thread> ioThreads;
-    for (int t = 0; t < 16; ++t)
+    for (int t = 0; t < 2; ++t)
     {
         ioThreads.emplace_back([&io_context]() {
             io_context.run();

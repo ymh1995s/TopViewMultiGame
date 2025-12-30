@@ -99,22 +99,6 @@ void Session::EnterRoom()
 	GRoom->EnterObject(player);
 }
 
-void Session::Send(const char* msg, int size)
-{
-	// TODO : SendBuffer는 보낼 때 마다 새로 생성 => 버퍼로 관리
-	// .. 아니지 msg를 복사 안하고 바로 보내면 안되나?
-
-	auto self = shared_from_this(); // 핸들러 내부에서 수명 보장용
-	string testMSG(msg, size); // TODO :삭제
-
-	socket->async_write_some(boost::asio::buffer(msg, size),
-		[self, testMSG](const boost::system::error_code& ec, size_t)
-		{
-			if (ec) std::cerr << "send err: " << ec.message() << "\n";
-			//else cout << "Session " << self->GetSessionId() << " said :" << testMSG << '\n';
-		});
-}
-
 void Session::Send(const vector<shared_ptr<vector<uint8_t>>>& packetList)
 {
 	// TODO : 패킷의 헤더 크기 계산이 제대로 됐는지 검증 필요.
